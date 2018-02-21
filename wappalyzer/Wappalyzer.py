@@ -99,6 +99,8 @@ class Wappalyzer(object):
     """
     Python Wappalyzer driver.
     """
+    __regex_conditional_match = re.compile(r'\\(?P<position>\d+)\?(?P<a>[\w\\]*)\:(?P<b>[\w\\]*)$')
+    __regex_unconditional_match = re.compile(r'\\(?P<position>\d+)')
 
     def __init__(self, categories, apps):
         """
@@ -178,9 +180,19 @@ class Wappalyzer(object):
         Strip out key:value pairs from the pattern and compile the regular
         expression.
         """
-        regex, _, rest = pattern.partition('\\;')
+        regex_and_tags = pattern.split('\\;')
+        regex = regex_and_tags[0]
+        confidence, version = 100, None
+
+        for tag in regex_and_tags[1:]:
+            k, v = tag.split(':', 1)
+            if k == 'confidence':
+                confidence = int(v)
+            elif k == 'version':
+                version = v
+
         try:
-            return re.compile(regex, re.I)
+            return re.compile(regex, re.I), version, confidence
         except re.error as e:
             warnings.warn(
                 "Caught '{error}' compiling regex: {regex}"
@@ -188,7 +200,31 @@ class Wappalyzer(object):
             )
             # regex that never matches:
             # http://stackoverflow.com/a/1845097/413622
-            return re.compile(r'(?!x)x')
+            return re.compile(r'(?!x)x'), None, None
+
+    def _matches(self, content, pattern):
+        """
+        Determine whether the pattern matches the content and return the extracted version and confidence.
+        """
+        regex, version, confidence = pattern
+        m = regex.search(content)
+
+        if not m:
+            return None, None, 0
+
+        def replace_cond_match(obj):
+            pos = int(obj.group('position'))
+            return obj.group('a') if m.group(pos) else obj.group('b')
+
+        def replace_uncond_match(obj):
+            pos = int(obj.group('position'))
+            return m.group(pos)
+
+        if version:
+            version = re.sub(self.__regex_conditional_match, replace_cond_match, version)
+            version = re.sub(self.__regex_unconditional_match, replace_uncond_match, version)
+
+        return True, version, confidence
 
     def _has_app(self, app, webpage):
         """
@@ -197,30 +233,41 @@ class Wappalyzer(object):
         # Search the easiest things first and save the full-text search of the
         # HTML for last
 
-        for regex in app['url']:
-            if regex.search(webpage.url):
-                return True
+        pattern_list = []
 
-        for name, regex in app['headers'].items():
+        for pattern in app['url']:
+            pattern_list.append((webpage.url, pattern))
+
+        for name, pattern in app['headers'].items():
             if name in webpage.headers:
                 content = webpage.headers[name]
-                if regex.search(content):
-                    return True
+                pattern_list.append((content, pattern))
 
-        for regex in app['script']:
+        for pattern in app['script']:
             for script in webpage.scripts:
-                if regex.search(script):
-                    return True
+                pattern_list.append((script, pattern))
 
-        for name, regex in app['meta'].items():
+        for name, pattern in app['meta'].items():
             if name in webpage.meta:
                 content = webpage.meta[name]
-                if regex.search(content):
-                    return True
+                pattern_list.append((content, pattern))
 
-        for regex in app['html']:
-            if regex.search(webpage.html):
-                return True
+        for pattern in app['html']:
+            pattern_list.append((webpage.html, pattern))
+
+        match, version, confidence = False, '', 0
+        # Find matchings, don't stop until a version is found
+        for content, pattern in pattern_list:
+            pattern_match, pattern_version, pattern_confidence = self._matches(content, pattern)
+
+            match = pattern_match if pattern_match else match
+            version = pattern_version if pattern_version else version
+            confidence += pattern_confidence
+
+            if match and version and confidence >= 100:
+                break
+
+        return match, version, min(100, confidence)
 
     def _get_implied_apps(self, detected_apps):
         """
@@ -259,13 +306,18 @@ class Wappalyzer(object):
         """
         Return a list of applications that can be detected on the web page.
         """
-        detected_apps = set()
+        detected_apps = []
 
         for app_name, app in self.apps.items():
-            if self._has_app(app, webpage):
-                detected_apps.add(app_name)
+            match, version, confidence = self._has_app(app, webpage)
+            if match:
+                detected_apps.append({
+                    "name": app_name,
+                    "version": version,
+                    "confidence": confidence
+                })
 
-        detected_apps |= self._get_implied_apps(detected_apps)
+        #detected_apps |= self._get_implied_apps(detected_apps)
 
         return detected_apps
 
