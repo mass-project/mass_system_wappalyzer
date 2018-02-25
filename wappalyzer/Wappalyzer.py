@@ -11,6 +11,7 @@ import pkg_resources
 import requests
 
 from bs4 import BeautifulSoup
+from urllib3.exceptions import InsecureRequestWarning
 
 logger = logging.getLogger(name=__name__)
 
@@ -78,6 +79,8 @@ class WebPage(object):
         url : str
         verify: bool
         """
+        if not verify:
+            warnings.simplefilter('ignore', InsecureRequestWarning)
         response = requests.get(url, allow_redirects=True, verify=verify, timeout=2.5)
         return cls.new_from_response(response)
 
@@ -297,10 +300,9 @@ class Wappalyzer(object):
         Returns a list of the categories for an app name.
         """
         cat_nums = self.apps.get(app_name, {}).get("cats", [])
-        cat_names = [self.categories.get("%s" % cat_num, "")
-                     for cat_num in cat_nums]
+        categories = [{int(num): self.categories[num]} for num in cat_nums]
 
-        return cat_names
+        return categories
 
     def analyze(self, webpage):
         """
@@ -314,22 +316,10 @@ class Wappalyzer(object):
                 detected_apps.append({
                     "name": app_name,
                     "version": version,
-                    "confidence": confidence
+                    "confidence": confidence,
+                    "categories": self.get_categories(app_name)
                 })
 
         #detected_apps |= self._get_implied_apps(detected_apps)
 
         return detected_apps
-
-    def analyze_with_categories(self, webpage):
-        """
-        Return a list of applications and categories that can be detected on the web page.
-        """
-        detected_apps = self.analyze(webpage)
-        categorised_apps = {}
-
-        for app_name in detected_apps:
-            cat_names = self.get_categories(app_name)
-            categorised_apps[app_name] = {"categories": cat_names}
-
-        return categorised_apps

@@ -20,24 +20,25 @@ class WappalyzerAnalysisInstance:
         if sample.has_uri():
             uri = sample.unique_features.uri
         elif sample.has_domain():
-            uri = 'https://{}'.format(sample.unique_features.domain)
+            uri = 'http://{}'.format(sample.unique_features.domain)
         else:
             raise ValueError('Sample has neither an URI nor a domain.')
 
         log.info('Querying {}...'.format(uri))
-        page = WebPage.new_from_url(uri)
-        apps = self.wappalyzer.analyze_with_categories(page)
+        page = WebPage.new_from_url(uri, verify=False)
+        results = self.wappalyzer.analyze(page)
 
-        # Restructure results
-        apps_by_category = {}
-        for k, v in apps.items():
-            for category in v['categories']:
-                if category['name'] in apps_by_category:
-                    apps_by_category[category['name']].append(k)
-                else:
-                    apps_by_category[category['name']] = [k]
+        tags = []
+        for app in results:
+            app_name, version = app['name'].replace(' ', '-'), app['version']
+            tags.append(app_name)
+            if version:
+                tags.append('{}:{}'.format(app_name, version))
 
-        scheduled_analysis.create_report(additional_metadata=apps_by_category)
+        scheduled_analysis.create_report(tags=tags,
+                                         json_report_objects={"wappalyzer_results": ("wappalyzer_results", results),
+                                                              "headers": ("headers", dict(page.headers)),
+                                                              "meta": ("meta", dict(page.meta))})
 
 
 if __name__ == '__main__':

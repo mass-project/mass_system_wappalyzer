@@ -10,10 +10,14 @@ import os
 
 
 def analyze_domain(d):
+    return analyze_url('https://{}'.format(d))
+
+
+def analyze_url(url):
     try:
-        page = WebPage.new_from_url('http://{}'.format(d), verify=False)
+        page = WebPage.new_from_url(url, verify=False)
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
-        print('PID{}, {}: Could not connect'.format(os.getpid(), d))
+        #print('PID{}, {}: Could not connect'.format(os.getpid(), d))
         return 1, 0, set()
     except Exception:
         print('-'*20)
@@ -22,7 +26,9 @@ def analyze_domain(d):
         raise
 
     apps = wa.analyze(page)
-    print('PID{}, {}: {}'.format(os.getpid(), d, apps))
+    #print('PID{}, {}: {}'.format(os.getpid(), d, apps))
+    #print({"urls": [url],
+    #       "applications": apps})
 
     if not apps:
         return 0, 1, apps
@@ -33,6 +39,7 @@ def analyze_domain(d):
 if __name__ == '__main__':
     warnings.simplefilter('ignore', InsecureRequestWarning)
     wa = Wappalyzer.latest()
+    #print(analyze_url("http://localhost:8000/webui/sample/5a70552415b77f06c144762d/")[2])
 
     with open('domains_small.txt') as fp:
         domains = fp.read().splitlines()
