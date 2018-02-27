@@ -7,6 +7,7 @@ from pprint import pprint
 import time
 import warnings
 import os
+import json
 
 
 def analyze_domain(d):
@@ -17,18 +18,18 @@ def analyze_url(url):
     try:
         page = WebPage.new_from_url(url, verify=False)
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
-        #print('PID{}, {}: Could not connect'.format(os.getpid(), d))
+        # print('PID{}, {}: Could not connect'.format(os.getpid(), d))
         return 1, 0, set()
     except Exception:
-        print('-'*20)
+        print('-' * 20)
         print('Exception analyzing {}'.format(d))
-        print('-'*20)
+        print('-' * 20)
         raise
 
     apps = wa.analyze(page)
-    #print('PID{}, {}: {}'.format(os.getpid(), d, apps))
-    #print({"urls": [url],
-    #       "applications": apps})
+    # print('PID{}, {}: {}'.format(os.getpid(), d, apps))
+    print(json.dumps({"urls": [url],
+                      "applications": apps}))
 
     if not apps:
         return 0, 1, apps
@@ -39,16 +40,16 @@ def analyze_url(url):
 if __name__ == '__main__':
     warnings.simplefilter('ignore', InsecureRequestWarning)
     wa = Wappalyzer.latest()
-    #print(analyze_url("http://localhost:8000/webui/sample/5a70552415b77f06c144762d/")[2])
+    # print(analyze_url("http://localhost:8000/webui/sample/5a70552415b77f06c144762d/")[2])
 
-    with open('domains_small.txt') as fp:
+    with open('domains.txt') as fp:
         domains = fp.read().splitlines()
 
     start = time.time()
 
     with Pool(12) as p:
         results = p.map(analyze_domain, domains)
-    #results = [analyze_domain(d) for d in domains]
+    # results = [analyze_domain(d) for d in domains]
     end = time.time()
 
     empty_sets, conn_errors, app_list = 0, 0, []
@@ -57,8 +58,9 @@ if __name__ == '__main__':
         empty_sets += empty
         app_list += list(apps)
 
-    #pprint(Counter(app_list))
-    #for i, d in enumerate(domains):
+    # pprint(Counter(app_list))
+    # for i, d in enumerate(domains):
     #    analyze_domain(i, d)
 
-    print('Checked {} domains in {}: {} without apps, {} unreachable.'.format(len(domains), end - start, empty_sets, conn_errors))
+    print('Checked {} domains in {}: {} without apps, {} unreachable.'.format(len(domains), end - start, empty_sets,
+                                                                              conn_errors))
