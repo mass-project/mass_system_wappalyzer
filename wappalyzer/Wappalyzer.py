@@ -274,26 +274,24 @@ class Wappalyzer(object):
 
     def _get_implied_apps(self, detected_apps):
         """
-        Get the set of apps implied by `detected_apps`.
+        Get the apps implied by `detected_apps`.
         """
-        def __get_implied_apps(apps):
-            _implied_apps = set()
-            for app in apps:
-                try:
-                    _implied_apps.update(set(self.apps[app]['implies']))
-                except KeyError:
-                    pass
-            return _implied_apps
+        app_names = {app['name'] for app in detected_apps}
+        for app in detected_apps:
+            implied_apps = self.apps[app['name']].get('implies', [])
+            for app_name in implied_apps:
+                app_name = app_name.split('\\;')[0]
+                if app_name in app_names:
+                    continue
 
-        implied_apps = __get_implied_apps(detected_apps)
-        all_implied_apps = set()
-
-        # Descend recursively until we've found all implied apps
-        while not all_implied_apps.issuperset(implied_apps):
-            all_implied_apps.update(implied_apps)
-            implied_apps = __get_implied_apps(all_implied_apps)
-
-        return all_implied_apps
+                # TODO: Use confidence value
+                app_names.add(app_name)
+                detected_apps.append({
+                    "name": app_name,
+                    "version": '',
+                    "confidence": 0,
+                    "categories": self.get_categories(app_name)
+                })
 
     def get_categories(self, app_name):
         """
@@ -320,6 +318,6 @@ class Wappalyzer(object):
                     "categories": self.get_categories(app_name)
                 })
 
-        #detected_apps |= self._get_implied_apps(detected_apps)
+        self._get_implied_apps(detected_apps)
 
         return detected_apps

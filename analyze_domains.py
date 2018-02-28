@@ -22,7 +22,7 @@ def analyze_url(url):
         return 1, 0, set()
     except Exception:
         print('-' * 20)
-        print('Exception analyzing {}'.format(d))
+        print('Exception analyzing {}'.format(url))
         print('-' * 20)
         raise
 
@@ -40,7 +40,8 @@ def analyze_url(url):
 if __name__ == '__main__':
     warnings.simplefilter('ignore', InsecureRequestWarning)
     wa = Wappalyzer.latest()
-    # print(analyze_url("http://localhost:8000/webui/sample/5a70552415b77f06c144762d/")[2])
+    #analyze_url("https://www.computerbase.de/forum/")
+    #exit(0)
 
     with open('domains.txt') as fp:
         domains = fp.read().splitlines()

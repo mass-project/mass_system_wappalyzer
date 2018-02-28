@@ -23,11 +23,11 @@ def read_output_file(fp):
 
 
 def get_app_dict(apps):
-    return {app['name']: app['version'] for app in apps if int(app['confidence']) == 100}
+    return {app['name']: app['version'] for app in apps}
 
 
 if __name__ == '__main__':
-    with open('output_native.txt') as fp:
+    with open('output_native_implied.txt') as fp:
         results_native = read_output_file(fp)
 
     with open('output_node.txt') as fp:
