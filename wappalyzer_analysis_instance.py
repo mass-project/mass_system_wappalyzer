@@ -51,7 +51,8 @@ if __name__ == '__main__':
 
     analysis_system_instance = get_or_create_analysis_system_instance(identifier='wappalyzer',
                                                                       verbose_name='Wappalyzer',
-                                                                      tag_filter_exp='sample-type:uri or sample-type:domain'
+                                                                      tag_filter_exp='sample-type:uri or sample-type:domain',
+                                                                      time_schedule=[0, 5, 30, 60]
                                                                       )
     process_analyses(analysis_system_instance, WappalyzerAnalysisInstance(), sleep_time=7, delete_instance_on_exit=True,
                      catch_exceptions=True)
