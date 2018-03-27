@@ -1,5 +1,8 @@
 import logging
+import warnings
 import os
+import requests
+from urllib3.exceptions import InsecureRequestWarning
 from wappalyzer import Wappalyzer, WebPage
 from mass_api_client import ConnectionManager
 from mass_api_client.utils import process_analyses, get_or_create_analysis_system_instance
@@ -20,25 +23,41 @@ class WappalyzerAnalysisInstance:
         if sample.has_uri():
             uri = sample.unique_features.uri
         elif sample.has_domain():
-            uri = 'http://{}'.format(sample.unique_features.domain)
+            uri = 'https://{}'.format(sample.unique_features.domain)
         else:
             raise ValueError('Sample has neither an URI nor a domain.')
 
         log.info('Querying {}...'.format(uri))
-        page = WebPage.new_from_url(uri, verify=False)
+        warnings.simplefilter('ignore', InsecureRequestWarning)
+        response = requests.get(uri, allow_redirects=True, verify=False, timeout=7)
+        page = WebPage.new_from_response(response)
         results = self.wappalyzer.analyze(page)
+        status_code = response.status_code
 
-        tags = []
+        tags = [
+            'wappalyzer-http-status:{}'.format(status_code)
+        ]
         for app in results:
             app_name, version = app['name'].replace(' ', '-'), app['version']
             tags.append(app_name)
             if version:
                 tags.append('{}:{}'.format(app_name, version))
 
-        scheduled_analysis.create_report(tags=tags,
+        redirects = [(r.url, r.status_code) for r in response.history]
+        failed_status = status_code > 500
+
+        metadata = {
+            'status': status_code,
+            'url': page.url,
+            'redirects': len(redirects)
+        }
+
+        scheduled_analysis.create_report(tags=tags, failed=failed_status, additional_metadata=metadata,
                                          json_report_objects={"wappalyzer_results": ("wappalyzer_results", results),
                                                               "headers": ("headers", dict(page.headers)),
-                                                              "meta": ("meta", dict(page.meta))})
+                                                              "meta": ("meta", dict(page.meta)),
+                                                              "redirects": ("redirects", redirects),
+                                                              "cookies": ("cookies", dict(response.cookies))})
 
 
 if __name__ == '__main__':
