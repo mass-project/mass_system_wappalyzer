@@ -38,7 +38,7 @@ class WappalyzerAnalysisInstance:
             'wappalyzer-http-status:{}'.format(status_code)
         ]
         for app in results:
-            app_name, version = app['name'].replace(' ', '-'), app['version']
+            app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '')
             tags.append(app_name)
             if version:
                 tags.append('{}:{}'.format(app_name, version))
