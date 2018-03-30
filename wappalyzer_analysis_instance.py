@@ -52,12 +52,18 @@ class WappalyzerAnalysisInstance:
             'redirects': len(redirects)
         }
 
+        try:
+            cookies = dict(response.cookies)
+        except KeyError:
+            log.warning('Could not parse cookies as dict')
+            tags.append('wa_failed_cookies')
+
         scheduled_analysis.create_report(tags=tags, failed=failed_status, additional_metadata=metadata,
                                          json_report_objects={"wappalyzer_results": ("wappalyzer_results", results),
                                                               "headers": ("headers", dict(page.headers)),
                                                               "meta": ("meta", dict(page.meta)),
                                                               "redirects": ("redirects", redirects),
-                                                              "cookies": ("cookies", dict(response.cookies))})
+                                                              "cookies": ("cookies", cookies)})
 
 
 if __name__ == '__main__':
