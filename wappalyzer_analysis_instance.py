@@ -2,6 +2,7 @@ import logging
 import warnings
 import os
 import requests
+import time
 from urllib3.exceptions import InsecureRequestWarning
 from wappalyzer import Wappalyzer, WebPage
 from mass_api_client import ConnectionManager
@@ -29,8 +30,16 @@ class WappalyzerAnalysisInstance:
 
         log.info('Querying {}...'.format(uri))
         warnings.simplefilter('ignore', InsecureRequestWarning)
-        response = requests.get(uri, allow_redirects=True, verify=False, timeout=7)
-        page = WebPage.new_from_response(response)
+        response = requests.get(uri, allow_redirects=True, verify=False, timeout=7, stream=True)
+
+        start_time, html = time.time(), ''
+        for chunk in response.iter_content(1024):
+            if time.time() - start_time > stream_timeout:
+                raise ValueError('Timeout reached. Downloading the contents took to long.')
+
+            html += str(chunk)
+
+        page = WebPage(response.url, html=html, headers=response.headers)
         results = self.wappalyzer.analyze(page)
         status_code = response.status_code
 
@@ -72,6 +81,7 @@ if __name__ == '__main__':
     server_addr = os.getenv('MASS_SERVER', 'http://localhost:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
+    stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '10'))
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
 
     analysis_system_instance = get_or_create_analysis_system_instance(identifier='wappalyzer',
