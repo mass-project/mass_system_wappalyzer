@@ -1,6 +1,7 @@
 import logging
 import warnings
 import os
+import re
 import requests
 import time
 from urllib3.exceptions import InsecureRequestWarning
@@ -46,8 +47,12 @@ class WappalyzerAnalysisInstance:
         tags = [
             'wappalyzer-http-status:{}'.format(status_code)
         ]
+
+        tag_validator = re.compile(r'[^\w:\-\_\/\+\.]+')
         for app in results:
-            app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '')
+            app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '-')
+            app_name, version = tag_validator.sub('', app_name), tag_validator.sub('_', version)
+
             tags.append(app_name)
             if version:
                 tags.append('{}:{}'.format(app_name, version))
