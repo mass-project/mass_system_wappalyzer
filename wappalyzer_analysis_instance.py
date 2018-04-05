@@ -26,6 +26,8 @@ class WappalyzerAnalysisInstance:
             uri = sample.unique_features.uri
         elif sample.has_domain():
             uri = 'https://{}'.format(sample.unique_features.domain)
+            if 'wildcard_true' in sample.tags:
+                uri = uri.replace('*.', '')
         else:
             raise ValueError('Sample has neither an URI nor a domain.')
 
@@ -36,7 +38,7 @@ class WappalyzerAnalysisInstance:
         start_time, html = time.time(), ''
         for chunk in response.iter_content(1024):
             if time.time() - start_time > stream_timeout:
-                raise ValueError('Timeout reached. Downloading the contents took to long.')
+                raise ValueError('Timeout reached. Downloading the contents took too long.')
 
             html += str(chunk)
 
@@ -56,6 +58,12 @@ class WappalyzerAnalysisInstance:
             tags.append(app_name)
             if version:
                 tags.append('{}:{}'.format(app_name, version))
+
+        if status_code < 400:
+            if results:
+                tags.append('wappalyzer-found-apps')
+            else:
+                tags.append('wappalyzer-found-nothing')
 
         redirects = [(r.url, r.status_code) for r in response.history]
         failed_status = status_code > 500
