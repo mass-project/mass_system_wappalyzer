@@ -26,6 +26,8 @@ class WappalyzerAnalysisInstance:
             uri = sample.unique_features.uri
         elif sample.has_domain():
             uri = 'https://{}'.format(sample.unique_features.domain)
+            if 'wildcard_true' in sample.tags:
+                uri = uri.replace('*.', '')
         else:
             raise ValueError('Sample has neither an URI nor a domain.')
 
