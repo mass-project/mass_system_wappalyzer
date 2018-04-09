@@ -1,9 +1,8 @@
 from mass_api_client import ConnectionManager
 from mass_api_client.resources import Sample
-from collections import Counter
+import json
 import os
 import re
-from pprint import pprint
 
 
 def _clean_app_name(app_name):
@@ -12,25 +11,22 @@ def _clean_app_name(app_name):
     return tag_validator.sub('', app_name)
 
 
-def get_counts(app_name):
-    versions = []
-    app_name = _clean_app_name(app_name)
-    for sample in Sample.query(tags__contains=app_name):
-        for tag in sample.tags:
-            if tag.startswith('{}:'.format(app_name)):
-                versions.append(tag)
-        else:
-            versions.append(None)
-
-    return Counter(versions)
-
-
 if __name__ == '__main__':
+    with open('wappalyzer/data/apps.json') as fp:
+        apps = json.load(fp)['apps']
+
     api_key = os.getenv('MASS_API_KEY', '')
     server_addr = os.getenv('MASS_SERVER', '')
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
 
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
-    pprint(get_counts('Drupal'))
 
+    counts = {}
+    for app in apps.keys():
+        tag = _clean_app_name(app)
+        count = Sample.count(tags=tag)
+        counts[app] = count
+        print('{}: {}'.format(tag, count))
 
+    with open('count_app_results.json', 'w') as fp:
+        json.dump(counts, fp)
