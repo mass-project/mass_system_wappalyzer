@@ -42,7 +42,7 @@ def get_counts(app_queue):
             counter_list[app_name] = Counter(results)
         except:
             logging.error('[{}] EXCEPTION'.format(os.getpid()))
-            app_queue.put(app_name)
+            continue
 
 
 if __name__ == '__main__':
