@@ -11,7 +11,7 @@ def count_tags():
     last_time = time.time()
     num_samples = 0
     tags = []
-    for sample in Sample.items():
+    for sample in Sample.items(page_size=1500):
         tags += sample.tags
         num_samples += 1
         if time.time() - last_time > 10:
