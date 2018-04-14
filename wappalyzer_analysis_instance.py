@@ -77,6 +77,7 @@ class WappalyzerAnalysisInstance:
         try:
             cookies = dict(response.cookies)
         except KeyError:
+            cookies = {}
             log.warning('Could not parse cookies as dict')
             tags.append('wa_failed_cookies')
 
