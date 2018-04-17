@@ -10,7 +10,7 @@ def _daterange(date1, date2):
 
 
 if __name__ == '__main__':
-    app_name = 'WordPress'
+    app_name = 'Atlassian-Jira'
     with open('process_report_data_results_complete.json') as fp:
         data = json.load(fp)
 
@@ -35,12 +35,12 @@ if __name__ == '__main__':
     date_end = max(labels)
     labels = list(_daterange(date_begin, date_end))
 
-    prev = None
+    offsets = [0 for _ in labels]
     for tag, num in counts.items():
         values = [counts[tag][label] if label in counts[tag] else 0 for label in labels]
         version = tag.split(':', maxsplit=1)[1]
-        plt.bar(range(len(values)), values, bottom=prev, label='{} ({})'.format(version, len(num)))
-        prev = values
+        plt.bar(range(len(values)), values, bottom=offsets, label='{} ({})'.format(version, len(num)))
+        offsets = [a + b for a, b in zip(values, offsets)]
 
     plt.title(app_name)
     #plt.legend()
