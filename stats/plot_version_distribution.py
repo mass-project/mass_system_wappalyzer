@@ -1,11 +1,16 @@
 import json
 import matplotlib.pyplot as plt
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
+
+
+def _daterange(date1, date2):
+    for n in range(int((date2 - date1).days)+1):
+        yield date1 + timedelta(n)
+
 
 if __name__ == '__main__':
-    tag_a = 'Koken:0.22.24'
-    tag_b = 'Koken:0.22.23'
+    app_name = 'WordPress'
     with open('process_report_data_results_complete.json') as fp:
         data = json.load(fp)
 
@@ -18,17 +23,27 @@ if __name__ == '__main__':
             else:
                 tag_appearances[tag] = [day]
 
-    counts_ver_a = Counter(tag_appearances[tag_a])
-    counts_ver_b = Counter(tag_appearances[tag_b])
+    labels = set()
+    counts = {}
+    for tag in tag_appearances.keys():
+        if tag.startswith('{}:'.format(app_name)):
+            counts[tag] = Counter(tag_appearances[tag])
+            labels |= set(counts[tag].keys())
 
-    labels_a, _ = zip(*counts_ver_a.items())
-    labels_b, _ = zip(*counts_ver_b.items())
-    labels = sorted(list(set(labels_a) | set(labels_b)))
-    values_a = [counts_ver_a[label] if label in counts_ver_a else 0 for label in labels]
-    values_b = [counts_ver_b[label] if label in counts_ver_b else 0 for label in labels]
+    # Add missing dates
+    date_begin = min(labels)
+    date_end = max(labels)
+    labels = list(_daterange(date_begin, date_end))
 
-    p_a = plt.bar(range(len(values_a)), values_a)
-    p_b = plt.bar(range(len(values_b)), values_b, bottom=values_a)
-    plt.legend((p_a, p_b), (tag_a, tag_b))
+    prev = None
+    for tag, num in counts.items():
+        values = [counts[tag][label] if label in counts[tag] else 0 for label in labels]
+        version = tag.split(':', maxsplit=1)[1]
+        plt.bar(range(len(values)), values, bottom=prev, label='{} ({})'.format(version, len(num)))
+        prev = values
+
+    plt.title(app_name)
+    #plt.legend()
     plt.xticks(range(len(labels)), labels, rotation=90)
+    plt.tight_layout()
     plt.show()
