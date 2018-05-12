@@ -33,7 +33,10 @@ class WappalyzerAnalysisInstance:
 
         log.info('Querying {}...'.format(uri))
         warnings.simplefilter('ignore', InsecureRequestWarning)
-        response = requests.get(uri, allow_redirects=True, verify=False, timeout=7, stream=True)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Wappalyzer)'
+        }
+        response = requests.get(uri, headers=headers, allow_redirects=True, verify=False, timeout=7, stream=True)
 
         start_time, html = time.time(), ''
         for chunk in response.iter_content(1024):
