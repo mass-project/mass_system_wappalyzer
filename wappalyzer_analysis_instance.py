@@ -41,6 +41,7 @@ class WappalyzerAnalysisInstance:
                                                                     'status': True,
                                                                     'cookies': True,
                                                                     'redirects': True,
+                                                                    'stream': True,
                                                                     'client_headers': {
                                                                         'User-Agent': 'Mozilla/5.0 (Wappalyzer)'}
                                                                     }, stage_instruction='wappalyzer')
