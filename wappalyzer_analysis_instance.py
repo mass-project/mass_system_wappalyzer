@@ -40,7 +40,9 @@ class WappalyzerAnalysisInstance:
                                                                     'headers': True,
                                                                     'status': True,
                                                                     'cookies': True,
-                                                                    'redirects': True
+                                                                    'redirects': True,
+                                                                    'client_headers': {
+                                                                        'User-Agent': 'Mozilla/5.0 (Wappalyzer)'}
                                                                     }, stage_instruction='wappalyzer')
 
     def __call__(self, sockets):
@@ -96,8 +98,7 @@ class WappalyzerAnalysisInstance:
                                                   "headers": dict(page.headers),
                                                   "meta": dict(page.meta),
                                                   "redirects": redirects,
-                                                  "cookies": cookies,
-                                                  'client_headers': {'User-Agent': 'Mozilla/5.0 (Wappalyzer)'}}
+                                                  "cookies": cookies}
 
             sockets.send(data)
         except Exception as e:
