@@ -26,7 +26,7 @@ class WappalyzerAnalysisInstance:
         if sample.has_uri():
             uri = sample.unique_features.uri
         elif sample.has_domain():
-            uri = 'https://{}'.format(sample.unique_features.domain)
+            uri = 'http://{}'.format(sample.unique_features.domain)
             if 'wildcard_true' in sample.tags:
                 uri = uri.replace('*.', '')
         else:
@@ -122,6 +122,6 @@ if __name__ == '__main__':
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
     frame.add_stage(get_http, 'get_http', concurrency='async')
-    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report')
+    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report', replicas=8)
     frame.add_stage(report, 'report', concurrency='process')
     frame.start_all_stages()
