@@ -1,13 +1,13 @@
 import logging
-import warnings
 import os
 import re
-import requests
-import time
-from urllib3.exceptions import InsecureRequestWarning
-from wappalyzer import Wappalyzer, WebPage
+
 from mass_api_client import ConnectionManager
-from mass_api_client.utils import process_analyses, get_or_create_analysis_system_instance
+from mass_api_client.utils import get_or_create_analysis_system
+from mass_api_client.utils.multistaged_analysis import AnalysisFrame
+from mass_api_client.utils.multistaged_analysis.miscellaneous import report, get_requests, error_handling_sync, get_http
+
+from wappalyzer import Wappalyzer, WebPage
 
 logging.basicConfig()
 log = logging.getLogger('wappalyzer_analysis_system')
@@ -18,9 +18,10 @@ class WappalyzerAnalysisInstance:
     def __init__(self):
         self.wappalyzer = Wappalyzer.latest()
 
-    def __call__(self, scheduled_analysis):
-        sample = scheduled_analysis.get_sample()
-
+    @staticmethod
+    def prepare_domain_or_url(sockets):
+        data = sockets.receive()
+        sample = data.sample
         # Check if there is a specific uri given, otherwise construct one from the domain
         if sample.has_uri():
             uri = sample.unique_features.uri
@@ -29,82 +30,97 @@ class WappalyzerAnalysisInstance:
             if 'wildcard_true' in sample.tags:
                 uri = uri.replace('*.', '')
         else:
-            raise ValueError('Sample has neither an URI nor a domain.')
+            print('Sample has neither an URI nor a domain.')
+            data.report['tags'] = ['no_url_or_domain']
+            data.report['failed'] = True
+            sockets.send(data, stage='report')
+            return
+        sockets.send_with_instruction(data, 'get_http', 'request', {'url_list': [uri],
+                                                                    'text': True,
+                                                                    'headers': True,
+                                                                    'status': True,
+                                                                    'cookies': True,
+                                                                    'redirects': True
+                                                                    }, stage_instruction='wappalyzer')
 
-        log.info('Querying {}...'.format(uri))
-        warnings.simplefilter('ignore', InsecureRequestWarning)
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Wappalyzer)'
-        }
-        response = requests.get(uri, headers=headers, allow_redirects=True, verify=False, timeout=7, stream=True)
-
-        start_time, html = time.time(), ''
-        for chunk in response.iter_content(1024):
-            if time.time() - start_time > stream_timeout:
-                raise ValueError('Timeout reached. Downloading the contents took too long.')
-
-            html += str(chunk)
-
-        page = WebPage(response.url, html=html, headers=response.headers)
-        results = self.wappalyzer.analyze(page)
-        status_code = response.status_code
-
-        tags = [
-            'wappalyzer-http-status:{}'.format(status_code)
-        ]
-
-        tag_validator = re.compile(r'[^\w:\-\_\/\+\.]+')
-        for app in results:
-            app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '-')
-            app_name, version = tag_validator.sub('', app_name), tag_validator.sub('_', version)
-
-            tags.append(app_name)
-            if version:
-                tags.append('{}:{}'.format(app_name, version))
-
-        if status_code < 400:
-            if results:
-                tags.append('wappalyzer-found-apps')
-            else:
-                tags.append('wappalyzer-found-nothing')
-
-        redirects = [(r.url, r.status_code) for r in response.history]
-        failed_status = status_code > 500
-
-        metadata = {
-            'status': status_code,
-            'url': page.url,
-            'redirects': len(redirects)
-        }
-
+    def __call__(self, sockets):
+        data = sockets.receive()
         try:
-            cookies = dict(response.cookies)
-        except KeyError:
-            cookies = {}
-            log.warning('Could not parse cookies as dict')
-            tags.append('wa_failed_cookies')
+            html = data.get_stage_report('request')[0]['text']
+            headers = data.get_stage_report('request')[0]['headers']
+            status_code = data.get_stage_report('request')[0]['status']
+            url = data.get_stage_report('request')[0]['url']
+            cookies = data.get_stage_report('request')[0]['cookies']
+            redirects = data.get_stage_report('request')[0]['redirects']
+            page = WebPage(url, html=html, headers=headers)
+            results = self.wappalyzer.analyze(page)
+            status_code = status_code
 
-        scheduled_analysis.create_report(tags=tags, failed=failed_status, additional_metadata=metadata,
-                                         json_report_objects={"wappalyzer_results": ("wappalyzer_results", results),
-                                                              "headers": ("headers", dict(page.headers)),
-                                                              "meta": ("meta", dict(page.meta)),
-                                                              "redirects": ("redirects", redirects),
-                                                              "cookies": ("cookies", cookies)})
+            tags = [
+                'wappalyzer-http-status:{}'.format(status_code)
+            ]
+
+            tag_validator = re.compile(r'[^\w:\-\_\/\+\.]+')
+            for app in results:
+                app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '-')
+                app_name, version = tag_validator.sub('', app_name), tag_validator.sub('_', version)
+
+                tags.append(app_name)
+                if version:
+                    tags.append('{}:{}'.format(app_name, version))
+
+            if status_code < 400:
+                if results:
+                    tags.append('wappalyzer-found-apps')
+                else:
+                    tags.append('wappalyzer-found-nothing')
+            failed_status = status_code > 500
+
+            metadata = {
+                'status': status_code,
+                'url': page.url,
+                'redirects': redirects
+            }
+
+            try:
+                cookies = dict(cookies)
+            except KeyError:
+                cookies = {}
+                log.warning('Could not parse cookies as dict')
+                tags.append('wa_failed_cookies')
+
+            data.report['tags'] = tags
+            data.report['additional_metadata'] = metadata
+            data.report['failed'] = failed_status
+            data.report['json_report_objects'] = {"wappalyzer_results": results,
+                                                  "headers": dict(page.headers),
+                                                  "meta": dict(page.meta),
+                                                  "redirects": redirects,
+                                                  "cookies": cookies,
+                                                  'client_headers': {'User-Agent': 'Mozilla/5.0 (Wappalyzer)'}}
+
+            sockets.send(data)
+        except Exception as e:
+            error_handling_sync(e, data, sockets)
 
 
 if __name__ == '__main__':
     api_key = os.getenv('MASS_API_KEY', '')
     log.info('Got API KEY {}'.format(api_key))
-    server_addr = os.getenv('MASS_SERVER', 'http://localhost:8000/api/')
+    server_addr = os.getenv('MASS_SERVER', 'http://127.0.0.1:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
     stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '10'))
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
-
-    analysis_system_instance = get_or_create_analysis_system_instance(identifier='wappalyzer',
-                                                                      verbose_name='Wappalyzer',
-                                                                      tag_filter_exp='sample-type:uri or sample-type:domain',
-                                                                      time_schedule=[0, 5, 30, 60]
-                                                                      )
-    process_analyses(analysis_system_instance, WappalyzerAnalysisInstance(), sleep_time=7, delete_instance_on_exit=True,
-                     catch_exceptions=True)
+    analysis_system = get_or_create_analysis_system(identifier='wappalyzer',
+                                                    verbose_name='Wappalyzer',
+                                                    tag_filter_exp='sample-type:uri or sample-type:domain',
+                                                    time_schedule=[0, 5, 30, 60]
+                                                    )
+    frame = AnalysisFrame()
+    frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
+    frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
+    frame.add_stage(get_http, 'get_http', concurrency='async')
+    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report')
+    frame.add_stage(report, 'report', concurrency='process')
+    frame.start_all_stages()
