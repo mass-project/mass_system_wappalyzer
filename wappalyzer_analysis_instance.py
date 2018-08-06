@@ -1,7 +1,9 @@
+import asyncio
 import logging
 import os
 import re
 
+import uvloop
 from mass_api_client import ConnectionManager
 from mass_api_client.utils import get_or_create_analysis_system
 from mass_api_client.utils.multistaged_analysis import AnalysisFrame
@@ -107,7 +109,7 @@ class WappalyzerAnalysisInstance:
 
 
 if __name__ == '__main__':
-    api_key = os.getenv('MASS_API_KEY', '')
+    api_key = os.getenv('MASS_API_KEY', 'IjViNGM4YmMwZTI3Yzk1MGJmZDhiMjkxOSI.Z3MCMZ1nxl1Y9tnf2_JHgGcGNJ0')
     log.info('Got API KEY {}'.format(api_key))
     server_addr = os.getenv('MASS_SERVER', 'http://127.0.0.1:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
@@ -119,6 +121,7 @@ if __name__ == '__main__':
                                                     tag_filter_exp='sample-type:uri or sample-type:domain',
                                                     time_schedule=[0, 5, 30, 60]
                                                     )
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     frame = AnalysisFrame()
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
