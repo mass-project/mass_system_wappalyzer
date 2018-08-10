@@ -109,12 +109,13 @@ class WappalyzerAnalysisInstance:
 
 
 if __name__ == '__main__':
-    api_key = os.getenv('MASS_API_KEY', 'IjViNGM4YmMwZTI3Yzk1MGJmZDhiMjkxOSI.Z3MCMZ1nxl1Y9tnf2_JHgGcGNJ0')
+    api_key = os.getenv('MASS_API_KEY', '')
     log.info('Got API KEY {}'.format(api_key))
     server_addr = os.getenv('MASS_SERVER', 'http://127.0.0.1:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
     stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '10'))
+    wappalyzer_concurrency = int(os.getenv('WA_CONCURRENCY', '8'))
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
     analysis_system = get_or_create_analysis_system(identifier='wappalyzer',
                                                     verbose_name='Wappalyzer',
@@ -126,6 +127,6 @@ if __name__ == '__main__':
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
     frame.add_stage(get_http, 'get_http', concurrency='async')
-    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report', replicas=8)
+    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report', replicas=wappalyzer_concurrency)
     frame.add_stage(report, 'report', concurrency='process')
     frame.start_all_stages()
