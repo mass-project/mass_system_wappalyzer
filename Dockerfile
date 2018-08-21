@@ -10,6 +10,7 @@ RUN apk add --no-cache build-base && \
     apk add --no-cache automake && \
     apk add --no-cache libtool && \
     apk add --no-cache autoconf
+RUN pip3 install websocket-client
 COPY requirements.txt /
 RUN BUILD_LIB=1 pip3 install -r /requirements.txt
 ADD . /
