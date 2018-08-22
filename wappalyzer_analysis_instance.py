@@ -7,7 +7,7 @@ import uvloop
 from mass_api_client import ConnectionManager
 from mass_api_client.utils import get_or_create_analysis_system
 from mass_api_client.utils.multistaged_analysis import AnalysisFrame
-from mass_api_client.utils.multistaged_analysis.miscellaneous import report, get_requests, error_handling_sync, get_http
+from mass_api_client.utils.multistaged_analysis.miscellaneous import report, get_requests, get_http
 
 from wappalyzer import Wappalyzer, WebPage
 
@@ -50,62 +50,52 @@ class WappalyzerAnalysisInstance:
 
     def __call__(self, sockets):
         data = sockets.receive()
-        try:
-            html = data.get_stage_report('request')[0]['text']
-            headers = data.get_stage_report('request')[0]['headers']
-            status_code = data.get_stage_report('request')[0]['status']
-            url = data.get_stage_report('request')[0]['url']
-            cookies = data.get_stage_report('request')[0]['cookies']
-            redirects = data.get_stage_report('request')[0]['redirects']
-            page = WebPage(url, html=html, headers=headers)
-            results = self.wappalyzer.analyze(page)
-            status_code = status_code
+        html = data.get_stage_report('request')[0]['text']
+        headers = data.get_stage_report('request')[0]['headers']
+        status_code = data.get_stage_report('request')[0]['status']
+        url = data.get_stage_report('request')[0]['url']
+        cookies = data.get_stage_report('request')[0]['cookies']
+        redirects = data.get_stage_report('request')[0]['redirects']
+        page = WebPage(url, html=html, headers=headers)
+        results = self.wappalyzer.analyze(page)
+        status_code = status_code
 
-            tags = [
-                'wappalyzer-http-status:{}'.format(status_code)
-            ]
+        tags = [
+            'wappalyzer-http-status:{}'.format(status_code)
+        ]
 
-            tag_validator = re.compile(r'[^\w:\-\_\/\+\.]+')
-            for app in results:
-                app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '-')
-                app_name, version = tag_validator.sub('', app_name), tag_validator.sub('_', version)
+        tag_validator = re.compile(r'[^\w:\-\_\/\+\.]+')
+        for app in results:
+            app_name, version = app['name'].replace(' ', '-'), app['version'].replace(' ', '-')
+            app_name, version = tag_validator.sub('', app_name), tag_validator.sub('_', version)
 
-                tags.append(app_name)
-                if version:
-                    tags.append('{}:{}'.format(app_name, version))
+            tags.append(app_name)
+            if version:
+                tags.append('{}:{}'.format(app_name, version))
 
-            if status_code < 400:
-                if results:
-                    tags.append('wappalyzer-found-apps')
-                else:
-                    tags.append('wappalyzer-found-nothing')
-            failed_status = status_code > 500
+        if status_code < 400:
+            if results:
+                tags.append('wappalyzer-found-apps')
+            else:
+                tags.append('wappalyzer-found-nothing')
+        failed_status = status_code > 500
 
-            metadata = {
-                'status': status_code,
-                'url': page.url,
-                'redirects': redirects
-            }
+        metadata = {
+            'status': status_code,
+            'url': page.url,
+            'redirects': redirects
+        }
 
-            try:
-                cookies = dict(cookies)
-            except KeyError:
-                cookies = {}
-                log.warning('Could not parse cookies as dict')
-                tags.append('wa_failed_cookies')
+        data.report['tags'] = tags
+        data.report['additional_metadata'] = metadata
+        data.report['failed'] = failed_status
+        data.report['json_report_objects'] = {"wappalyzer_results": results,
+                                              "headers": dict(page.headers),
+                                              "meta": dict(page.meta),
+                                              "redirects": redirects,
+                                              "cookies": cookies}
 
-            data.report['tags'] = tags
-            data.report['additional_metadata'] = metadata
-            data.report['failed'] = failed_status
-            data.report['json_report_objects'] = {"wappalyzer_results": results,
-                                                  "headers": dict(page.headers),
-                                                  "meta": dict(page.meta),
-                                                  "redirects": redirects,
-                                                  "cookies": cookies}
-
-            sockets.send(data)
-        except Exception as e:
-            error_handling_sync(e, data, sockets)
+        sockets.send(data)
 
 
 if __name__ == '__main__':
@@ -127,6 +117,7 @@ if __name__ == '__main__':
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
     frame.add_stage(get_http, 'get_http', concurrency='async')
-    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report', replicas=wappalyzer_concurrency)
+    frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report',
+                    replicas=wappalyzer_concurrency)
     frame.add_stage(report, 'report', concurrency='process')
     frame.start_all_stages()
