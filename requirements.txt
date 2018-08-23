@@ -3,5 +3,6 @@ aiohttp==3.3.2
 requests==2.18.4
 beautifulsoup4==4.6
 zmq==0.0.0
+raven==6.9.0
 git+https://github.com/mass-project/mass_api_client@0.3
 git+https://github.com/Silberschleier/stomp.py
