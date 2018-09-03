@@ -52,6 +52,12 @@ class WappalyzerAnalysisInstance:
         data = sockets.receive()
         html = data.get_stage_report('request')[0]['text']
         headers = data.get_stage_report('request')[0]['headers']
+
+        # converts tuples of header entries to concatenated strings
+        for head in headers:
+            if isinstance(headers[head], tuple):
+                headers[head] = ", ".join([str(s) for s in list(headers[head])])
+
         status_code = data.get_stage_report('request')[0]['status']
         url = data.get_stage_report('request')[0]['url']
         cookies = data.get_stage_report('request')[0]['cookies']
@@ -59,7 +65,6 @@ class WappalyzerAnalysisInstance:
         page = WebPage(url, html=html, headers=headers)
         results = self.wappalyzer.analyze(page)
         status_code = status_code
-
         tags = [
             'wappalyzer-http-status:{}'.format(status_code)
         ]
@@ -99,9 +104,9 @@ class WappalyzerAnalysisInstance:
 
 
 if __name__ == '__main__':
-    api_key = os.getenv('MASS_API_KEY', 'IjViNzE2MmM1ZTI3Yzk1N2I2ZDAwZWExNyI.S1BZ1vzC0LCWbsubGtvMif_w0hM')
+    api_key = os.getenv('MASS_API_KEY', 'xxx')
     log.info('Got API KEY {}'.format(api_key))
-    server_addr = os.getenv('MASS_SERVER', 'http://127.0.0.1:8000/api/')
+    server_addr = os.getenv('MASS_SERVER', 'http://localhost:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
     stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '10'))
