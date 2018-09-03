@@ -56,7 +56,7 @@ class WappalyzerAnalysisInstance:
         # converts tuples of header entries to concatenated strings
         for head in headers:
             if isinstance(headers[head], tuple):
-                headers[head] = ", ".join([str(s) for s in list(headers[head])])
+                headers[head] = ', '.join([str(s) for s in list(headers[head])])
 
         status_code = data.get_stage_report('request')[0]['status']
         url = data.get_stage_report('request')[0]['url']
@@ -97,7 +97,6 @@ class WappalyzerAnalysisInstance:
         data.report['json_report_objects'] = {"wappalyzer_results": results,
                                               "headers": dict(page.headers),
                                               "meta": dict(page.meta),
-                                              "redirects": redirects,
                                               "cookies": cookies}
 
         sockets.send(data)
