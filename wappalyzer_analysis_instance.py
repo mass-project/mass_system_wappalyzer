@@ -42,7 +42,7 @@ class WappalyzerAnalysisInstance:
                                                                     'headers': True,
                                                                     'status': True,
                                                                     'cookies': True,
-                                                                    'redirects': True,
+                                                                    'history': True,
                                                                     'stream': True,
                                                                     'client_headers': {
                                                                         'User-Agent': 'Mozilla/5.0 (Wappalyzer)'}
@@ -61,7 +61,8 @@ class WappalyzerAnalysisInstance:
         status_code = data.get_stage_report('request')[0]['status']
         url = data.get_stage_report('request')[0]['url']
         cookies = data.get_stage_report('request')[0]['cookies']
-        redirects = data.get_stage_report('request')[0]['redirects']
+        redirects = len(data.get_stage_report('request')[0]['history'])
+        history = data.get_stage_report('request')[0]['history']
         page = WebPage(url, html=html, headers=headers)
         results = self.wappalyzer.analyze(page)
         status_code = status_code
@@ -97,6 +98,7 @@ class WappalyzerAnalysisInstance:
         data.report['json_report_objects'] = {"wappalyzer_results": results,
                                               "headers": dict(page.headers),
                                               "meta": dict(page.meta),
+                                              "history": history,
                                               "cookies": cookies}
 
         sockets.send(data)
