@@ -110,9 +110,10 @@ if __name__ == '__main__':
     server_addr = os.getenv('MASS_SERVER', 'http://localhost:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
-    stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '10'))
+    stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '300'))
+    connection_timeout = int(os.getenv('WA_CONNECTION_TIMEOUT', '60'))
     wappalyzer_concurrency = int(os.getenv('WA_CONCURRENCY', '8'))
-    parralel_req_env = int(os.getenv('WA_PAR_REQ', 50))
+    parallel_req_env = int(os.getenv('WA_PAR_REQ', 200))
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
     analysis_system = get_or_create_analysis_system(identifier='wappalyzer',
                                                     verbose_name='Wappalyzer',
@@ -123,7 +124,7 @@ if __name__ == '__main__':
     frame = AnalysisFrame()
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
-    frame.add_stage(get_http, 'get_http', concurrency='async', args=(error_handling_async, parralel_req_env, 60, 300))
+    frame.add_stage(get_http, 'get_http', concurrency='async', args=(error_handling_async, parallel_req_env, connection_timeout, stream_timeout))
     frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report',
                     replicas=wappalyzer_concurrency)
     frame.add_stage(report, 'report', concurrency='process')
