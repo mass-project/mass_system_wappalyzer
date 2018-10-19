@@ -107,24 +107,24 @@ class WappalyzerAnalysisInstance:
 if __name__ == '__main__':
     api_key = os.getenv('MASS_API_KEY', 'xxx')
     log.info('Got API KEY {}'.format(api_key))
-    server_addr = os.getenv('MASS_SERVER', 'http://localhost:8000/api/')
+    server_addr = os.getenv('MASS_SERVER', 'http://127.0.0.1:8000/api/')
     log.info('Connecting to {}'.format(server_addr))
     timeout = int(os.getenv('MASS_TIMEOUT', '60'))
-    stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '300'))
+    stream_timeout = int(os.getenv('WA_STREAM_TIMEOUT', '60'))
     connection_timeout = int(os.getenv('WA_CONNECTION_TIMEOUT', '60'))
     wappalyzer_concurrency = int(os.getenv('WA_CONCURRENCY', '8'))
-    parallel_req_env = int(os.getenv('WA_PAR_REQ', 200))
+    parallel_req_env = int(os.getenv('WA_PAR_REQ', '200'))
+    post_timeout = int(os.getenv('WA_POST_TIMEOUT', '10'))
     ConnectionManager().register_connection('default', api_key, server_addr, timeout=timeout)
     analysis_system = get_or_create_analysis_system(identifier='wappalyzer',
                                                     verbose_name='Wappalyzer',
                                                     tag_filter_exp='sample-type:uri or sample-type:domain',
-                                                    time_schedule=[0, 5, 30, 60]
                                                     )
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     frame = AnalysisFrame()
     frame.add_stage(get_requests, 'get_requests', concurrency='process', args=(analysis_system,), next_stage='prepare')
     frame.add_stage(WappalyzerAnalysisInstance.prepare_domain_or_url, 'prepare', concurrency='process')
-    frame.add_stage(get_http, 'get_http', concurrency='async', args=(error_handling_async, parallel_req_env, connection_timeout, stream_timeout))
+    frame.add_stage(get_http, 'get_http', concurrency='async', args=(error_handling_async, parallel_req_env, connection_timeout, stream_timeout, post_timeout))
     frame.add_stage(WappalyzerAnalysisInstance(), 'wappalyzer', concurrency='process', next_stage='report',
                     replicas=wappalyzer_concurrency)
     frame.add_stage(report, 'report', concurrency='process')
