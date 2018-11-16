@@ -19,7 +19,7 @@ def analyze_url(url):
         page = WebPage.new_from_url(url, verify=False)
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
         # print('PID{}, {}: Could not connect'.format(os.getpid(), d))
-        return 1, 0, set()
+        return 1, 0, set(), url
     except Exception:
         print('-' * 20)
         print('Exception analyzing {}'.format(url))
@@ -28,13 +28,13 @@ def analyze_url(url):
 
     apps = wa.analyze(page)
     # print('PID{}, {}: {}'.format(os.getpid(), d, apps))
-    print(json.dumps({"urls": [url],
-                      "applications": apps}))
+#    print(json.dumps({"urls": [url],
+#                      "applications": apps}))
 
     if not apps:
-        return 0, 1, apps
+        return 0, 1, apps, url
     else:
-        return 0, 0, apps
+        return 0, 0, apps, url
 
 
 if __name__ == '__main__':
@@ -50,14 +50,14 @@ if __name__ == '__main__':
 
     with Pool(12) as p:
         results = p.map(analyze_domain, domains)
-    # results = [analyze_domain(d) for d in domains]
+    #results = [analyze_domain(d) for d in domains]
     end = time.time()
 
-    empty_sets, conn_errors, app_list = 0, 0, []
-    for con, empty, apps in results:
+    empty_sets, conn_errors, app_list = 0, 0, {}
+    for con, empty, apps, url in results:
         conn_errors += con
         empty_sets += empty
-        app_list += list(apps)
+        app_list[url] = list(apps)
 
     # pprint(Counter(app_list))
     # for i, d in enumerate(domains):
@@ -65,3 +65,8 @@ if __name__ == '__main__':
 
     print('Checked {} domains in {}: {} without apps, {} unreachable.'.format(len(domains), end - start, empty_sets,
                                                                               conn_errors))
+
+    with open('wa_domain_results.txt', 'w') as fp:
+        for d, apps in app_list.items():
+            json.dump({'domain': d, 'apps': apps}, fp)
+            fp.write('\n')
