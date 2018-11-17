@@ -8,6 +8,12 @@ import time
 import warnings
 import os
 import json
+import logging
+import requests
+
+logging.basicConfig()
+log = logging.getLogger('wappalyzer_analysis_system')
+log.setLevel(logging.INFO)
 
 
 def analyze_domain(d):
@@ -15,8 +21,23 @@ def analyze_domain(d):
 
 
 def analyze_url(url):
+    stream_timeout = 10
     try:
-        page = WebPage.new_from_url(url, verify=False)
+        log.info('Querying {}...'.format(url))
+        warnings.simplefilter('ignore', InsecureRequestWarning)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Wappalyzer)'
+        }
+        response = requests.get(url, headers=headers, allow_redirects=True, verify=False, timeout=7, stream=True)
+
+        start_time, html = time.time(), ''
+        for chunk in response.iter_content(1024):
+            if time.time() - start_time > stream_timeout:
+                raise ValueError('Timeout reached. Downloading the contents took too long.')
+
+            html += str(chunk)
+
+        page = WebPage(response.url, html=html, headers=response.headers)
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
         # print('PID{}, {}: Could not connect'.format(os.getpid(), d))
         return 1, 0, set(), url
