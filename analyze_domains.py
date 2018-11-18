@@ -42,11 +42,11 @@ def analyze_url(url):
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
         # print('PID{}, {}: Could not connect'.format(os.getpid(), d))
         return 1, 0, set(), url
-    except Exception:
+    except:
         print('-' * 20)
         print('Exception analyzing {}'.format(url))
         print('-' * 20)
-        raise
+        return 1, 0, set(), url
 
     # print('PID{}, {}: {}'.format(os.getpid(), d, apps))
 #    print(json.dumps({"urls": [url],
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     start = time.time()
 
-    with Pool(12) as p:
+    with Pool(24) as p:
         results = p.map(analyze_domain, domains)
     #results = [analyze_domain(d) for d in domains]
     end = time.time()
