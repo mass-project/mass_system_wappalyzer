@@ -38,6 +38,7 @@ def analyze_url(url):
             html += str(chunk)
 
         page = WebPage(response.url, html=html, headers=response.headers)
+        apps = wa.analyze(page)
     except (ConnectTimeout, ConnectionError, ReadTimeout, InvalidURL, TooManyRedirects):
         # print('PID{}, {}: Could not connect'.format(os.getpid(), d))
         return 1, 0, set(), url
@@ -47,7 +48,6 @@ def analyze_url(url):
         print('-' * 20)
         raise
 
-    apps = wa.analyze(page)
     # print('PID{}, {}: {}'.format(os.getpid(), d, apps))
 #    print(json.dumps({"urls": [url],
 #                      "applications": apps}))
