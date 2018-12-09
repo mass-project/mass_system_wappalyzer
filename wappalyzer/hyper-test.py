@@ -40,10 +40,16 @@ class Wappalyzer:
 
             if "meta" in values:
                 for key, value in values["meta"].items():
+                    if not value:
+                        # Todo: Match empty meta headers
+                        continue
                     self.meta_expressions.setdefault(key, []).append(value)
                     self.meta_app_keys.setdefault(key, []).append(app)
 
-        self.databases["meta"] = PatternDatabase(self.meta_expressions, self.meta_app_keys)
+        self.databases["meta"] = {}
+        for key in self.meta_expressions.keys():
+            self.databases["meta"][key] = PatternDatabase(self.meta_expressions[key], self.meta_app_keys[key])
+
         for cat in self.categories:
             self.databases[cat] = PatternDatabase(self.expressions[cat], self.app_keys[cat])
 
@@ -55,8 +61,10 @@ class Wappalyzer:
             found |= self.databases["script"].match(script)
 
         for k, v in meta.items():
-            found |= self.databases["meta"].match(v)
+            if k in self.databases["meta"]:
+                found |= self.databases["meta"][k].match(v)
 
+        print(found)
         return found
 
     def _parse_html(self, html):
@@ -80,7 +88,7 @@ class PatternDatabase:
 
     def _build_db(self):
         self.db = hyperscan.Database()
-        self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER] * len(self.patterns))
+        self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
 
     @staticmethod
     def _clean(pattern):
@@ -106,7 +114,7 @@ class MatchResults:
 
 
 if __name__ == "__main__":
-    iterations = 100
+    iterations = 1
     samples = []
     path = "test_html"
     for file in os.listdir(path):
