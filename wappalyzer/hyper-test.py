@@ -2,6 +2,7 @@ import hyperscan
 from bs4 import BeautifulSoup
 
 from datetime import datetime
+import re
 import os
 import json
 import logging
@@ -12,7 +13,12 @@ log.setLevel(logging.DEBUG)
 
 
 class Wappalyzer:
-    def __init__(self, apps_path='data/apps.json'):
+    def __init__(self, pattern_db=None, apps_path='data/apps.json'):
+        if not pattern_db:
+            self.engine = RePatternDatabase
+        else:
+            self.engine = pattern_db
+
         self.meta_app_keys = {}
         self.meta_expressions = {}
 
@@ -48,10 +54,10 @@ class Wappalyzer:
 
         self.databases["meta"] = {}
         for key in self.meta_expressions.keys():
-            self.databases["meta"][key] = PatternDatabase(self.meta_expressions[key], self.meta_app_keys[key])
+            self.databases["meta"][key] = self.engine(self.meta_expressions[key], self.meta_app_keys[key])
 
         for cat in self.categories:
-            self.databases[cat] = PatternDatabase(self.expressions[cat], self.app_keys[cat])
+            self.databases[cat] = self.engine(self.expressions[cat], self.app_keys[cat])
 
     def match(self, data):
         scripts, meta = self._parse_html(data)
@@ -64,7 +70,6 @@ class Wappalyzer:
             if k in self.databases["meta"]:
                 found |= self.databases["meta"][k].match(v)
 
-        print(found)
         return found
 
     def _parse_html(self, html):
@@ -84,11 +89,7 @@ class PatternDatabase:
 
         start = datetime.now()
         self._build_db()
-        logging.info('Built PatternDB with {} patterns in {}'.format(len(self.patterns), datetime.now() - start))
-
-    def _build_db(self):
-        self.db = hyperscan.Database()
-        self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
+        logging.info('Built {} with {} patterns in {}'.format(self.__class__.__name__, len(self.patterns), datetime.now() - start))
 
     @staticmethod
     def _clean(pattern):
@@ -99,10 +100,30 @@ class PatternDatabase:
 
         return pattern.encode()
 
+    def _build_db(self):
+        raise NotImplementedError
+
+    def match(self, data):
+        raise NotImplementedError
+
+
+class HyperscanPatternDatabase(PatternDatabase):
+    def _build_db(self):
+        self.db = hyperscan.Database()
+        self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
+
     def match(self, data):
         results = MatchResults()
         self.db.scan(data, results)
         return {self.app_keys[k] for k in results.matches.keys()}
+
+
+class RePatternDatabase(PatternDatabase):
+    def _build_db(self):
+        self.compiled_patterns = [re.compile(self._clean(p)) for p in self.patterns]
+
+    def match(self, data):
+        return {k for p, k in zip(self.compiled_patterns, self.app_keys) if p.search(data.encode())}
 
 
 class MatchResults:
@@ -114,7 +135,7 @@ class MatchResults:
 
 
 if __name__ == "__main__":
-    iterations = 1
+    iterations = 100
     samples = []
     path = "test_html"
     for file in os.listdir(path):
@@ -122,7 +143,7 @@ if __name__ == "__main__":
             with open(os.path.join(path, file), encoding="latin-1") as fp:
                 samples.append(fp.read())
 
-    wa = Wappalyzer()
+    wa = Wappalyzer(HyperscanPatternDatabase)
 
     start = datetime.now()
     for _ in range(iterations):
