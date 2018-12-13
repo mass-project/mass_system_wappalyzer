@@ -70,7 +70,6 @@ class Wappalyzer:
             if k in self.databases["meta"]:
                 found |= self.databases["meta"][k].match(v)
 
-        #print(found)
         return found
 
     def _parse_html(self, html):
@@ -150,7 +149,6 @@ if __name__ == "__main__":
 
     #wa = Wappalyzer(RePatternDatabase)
     wa = Wappalyzer(HyperscanPatternDatabase)
-    #wa = Wappalyzer(RePatternDatabase)
 
     start = datetime.now()
     for _ in range(iterations):
