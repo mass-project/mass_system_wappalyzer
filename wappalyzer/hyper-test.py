@@ -70,6 +70,7 @@ class Wappalyzer:
             if k in self.databases["meta"]:
                 found |= self.databases["meta"][k].match(v)
 
+        #print(found)
         return found
 
     def _parse_html(self, html):
@@ -105,13 +106,21 @@ class PatternDatabase:
 
 class HyperscanPatternDatabase(PatternDatabase):
     def _build_db(self):
+        self.compiled_patterns = [re.compile(self._clean(p)) for p in self.patterns]
         self.db = hyperscan.Database()
         self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
 
     def match(self, data):
         results = MatchResults()
         self.db.scan(data, results)
-        return {self.app_keys[k] for k in results.matches.keys()}
+
+        found = set()
+        for k, match in results.matches.items():
+            begin, end, _, _ = match
+            if self.compiled_patterns[k].search(data[begin:end].encode()):
+                found.add(self.app_keys[k])
+
+        return found
 
 
 class RePatternDatabase(PatternDatabase):
@@ -141,6 +150,7 @@ if __name__ == "__main__":
 
     #wa = Wappalyzer(RePatternDatabase)
     wa = Wappalyzer(HyperscanPatternDatabase)
+    #wa = Wappalyzer(RePatternDatabase)
 
     start = datetime.now()
     for _ in range(iterations):
