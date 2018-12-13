@@ -926,19 +926,6 @@
       ],
       "website": "http://aurelia.io"
     },
-    "Avangate": {
-      "cats": [
-        "6"
-      ],
-      "js": {
-        "avng8_": "",
-        "__avng8_": ""
-      },
-      "html": "<link[^>]* href=\"^https?://edge\\.avangate\\.net/",
-      "icon": "Avangate.svg",
-      "script": "^https?://edge\\.avangate\\.net/",
-      "website": "http://avangate.com"
-    },
     "BEM": {
       "cats": [
         "12"

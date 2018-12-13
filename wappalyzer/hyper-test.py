@@ -94,10 +94,6 @@ class PatternDatabase:
     @staticmethod
     def _clean(pattern):
         pattern = pattern.split('\\;')[0]
-        pattern = pattern.replace("^", "")
-        if "^" in pattern and pattern[0] != "^":
-            print(pattern)
-
         return pattern.encode()
 
     def _build_db(self):
@@ -143,6 +139,7 @@ if __name__ == "__main__":
             with open(os.path.join(path, file), encoding="latin-1") as fp:
                 samples.append(fp.read())
 
+    #wa = Wappalyzer(RePatternDatabase)
     wa = Wappalyzer(HyperscanPatternDatabase)
 
     start = datetime.now()
