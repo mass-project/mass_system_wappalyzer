@@ -7,6 +7,8 @@ import os
 import json
 import logging
 
+from pprint import pprint
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('wappalyzer')
 log.setLevel(logging.DEBUG)
@@ -22,9 +24,8 @@ class Wappalyzer:
         self.meta_app_keys = {}
         self.meta_expressions = {}
 
-        self.categories = ["html", "script"]
-        self.app_keys = {k: [] for k in self.categories}
-        self.expressions = {k: [] for k in self.categories}
+        self.app_keys = []
+        self.expressions = []
         self.databases = {}
         self._build_db(apps_path)
 
@@ -33,42 +34,61 @@ class Wappalyzer:
             apps = json.load(fp)['apps']
 
         for app, values in apps.items():
-            for cat in self.categories:
-                if cat in values:
-                    obj = values[cat]
-                    if isinstance(obj, list):
-                        for expr in obj:
-                            self.expressions[cat].append(expr)
-                            self.app_keys[cat].append(app)
-                    else:
-                        self.expressions[cat].append(obj)
-                        self.app_keys[cat].append(app)
+            if "html" in values:
+                obj = values["html"]
+                if isinstance(obj, list):
+                    for expr in obj:
+                        self.expressions.append(expr)
+                        self.app_keys.append(app)
+                else:
+                    self.expressions.append(obj)
+                    self.app_keys.append(app)
+
+            if "script" in values:
+                obj = values["script"]
+                if isinstance(obj, list):
+                    for expr in obj:
+                        # TODO: make it more robust. case sensitivity, quotation marks, etc.
+                        self.expressions.append("<script[^>]* src=\"{}\"".format(self._clean_inline(expr)))
+                        self.app_keys.append(app)
+                        #self.database = self.engine(self.expressions, self.app_keys)
 
             if "meta" in values:
                 for key, value in values["meta"].items():
                     if not value:
-                        # Todo: Match empty meta headers
-                        continue
-                    self.meta_expressions.setdefault(key, []).append(value)
-                    self.meta_app_keys.setdefault(key, []).append(app)
+                        value = ".+"
+                    self.expressions.append("<meta[^>]* name=\"{}\" content=\"{}\"".format(key, self._clean_inline(value)))
+                    self.app_keys.append(app)
+                    #self.database = self.engine(self.expressions, self.app_keys)
 
         self.databases["meta"] = {}
         for key in self.meta_expressions.keys():
             self.databases["meta"][key] = self.engine(self.meta_expressions[key], self.meta_app_keys[key])
 
-        for cat in self.categories:
-            self.databases[cat] = self.engine(self.expressions[cat], self.app_keys[cat])
+        self.database = self.engine(self.expressions, self.app_keys)
+
+    def _clean(self, pattern):
+        pattern = pattern.split('\\;')[0]
+        return pattern.encode()
+
+    def _clean_inline(self, pattern):
+        pattern = pattern.split('\\;')[0]
+        pattern = pattern.replace("(?:^|\s)", "\s")
+        pattern = pattern[1:] if pattern[0] == "^" else pattern
+        if "^" in pattern:
+            print(pattern)
+        return pattern.replace("$", "")
 
     def match(self, data):
-        scripts, meta = self._parse_html(data)
-        found = self.databases["html"].match(data)
+        #scripts, meta = self._parse_html(data)
+        found = self.database.match(data)
 
-        for script in scripts:
-            found |= self.databases["script"].match(script)
+        #for script in scripts:
+        #    found |= self.databases["script"].match(script)
 
-        for k, v in meta.items():
-            if k in self.databases["meta"]:
-                found |= self.databases["meta"][k].match(v)
+        #for k, v in meta.items():
+        #    if k in self.databases["meta"]:
+        #        found |= self.databases["meta"][k].match(v)
 
         return found
 
@@ -91,11 +111,6 @@ class PatternDatabase:
         self._build_db()
         logging.info('Built {} with {} patterns in {}'.format(self.__class__.__name__, len(self.patterns), datetime.now() - start))
 
-    @staticmethod
-    def _clean(pattern):
-        pattern = pattern.split('\\;')[0]
-        return pattern.encode()
-
     def _build_db(self):
         raise NotImplementedError
 
@@ -105,9 +120,9 @@ class PatternDatabase:
 
 class HyperscanPatternDatabase(PatternDatabase):
     def _build_db(self):
-        self.compiled_patterns = [re.compile(self._clean(p)) for p in self.patterns]
+        self.compiled_patterns = [re.compile(p.encode()) for p in self.patterns]
         self.db = hyperscan.Database()
-        self.db.compile([self._clean(p) for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
+        self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
 
     def match(self, data):
         results = MatchResults()
