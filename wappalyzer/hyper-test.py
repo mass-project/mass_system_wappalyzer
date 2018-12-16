@@ -1,5 +1,4 @@
 import hyperscan
-from bs4 import BeautifulSoup
 
 from datetime import datetime
 import re
@@ -7,7 +6,6 @@ import os
 import json
 import logging
 
-from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('wappalyzer')
@@ -15,15 +13,13 @@ log.setLevel(logging.DEBUG)
 
 
 class Wappalyzer:
-    def __init__(self, pattern_db=None, apps_path='data/apps.json'):
+    def __init__(self, pattern_db=None, apps_path='data/apps.json', selected_apps=None):
         if not pattern_db:
             self.engine = RePatternDatabase
         else:
             self.engine = pattern_db
 
-        self.meta_app_keys = {}
-        self.meta_expressions = {}
-
+        self.active_apps = selected_apps
         self.app_keys = []
         self.expressions = []
         self.databases = {}
@@ -34,6 +30,9 @@ class Wappalyzer:
             apps = json.load(fp)['apps']
 
         for app, values in apps.items():
+            if self.active_apps and app not in self.active_apps:
+                continue
+
             if "html" in values:
                 obj = values["html"]
                 if isinstance(obj, list):
@@ -51,19 +50,15 @@ class Wappalyzer:
                         # TODO: make it more robust. case sensitivity, quotation marks, etc.
                         self.expressions.append("<script[^>]* src=\"{}\"".format(self._clean_inline(expr)))
                         self.app_keys.append(app)
-                        #self.database = self.engine(self.expressions, self.app_keys)
 
             if "meta" in values:
                 for key, value in values["meta"].items():
                     if not value:
-                        value = ".+"
-                    self.expressions.append("<meta[^>]* name=\"{}\" content=\"{}\"".format(key, self._clean_inline(value)))
+                        expr = "<meta[^>]* name=\"{}\"".format(key)
+                    else:
+                        expr = "<meta[^>]* name=\"{}\" content=\"{}\"".format(key, self._clean_inline(value))
+                    self.expressions.append(expr)
                     self.app_keys.append(app)
-                    #self.database = self.engine(self.expressions, self.app_keys)
-
-        self.databases["meta"] = {}
-        for key in self.meta_expressions.keys():
-            self.databases["meta"][key] = self.engine(self.meta_expressions[key], self.meta_app_keys[key])
 
         self.database = self.engine(self.expressions, self.app_keys)
 
@@ -75,31 +70,10 @@ class Wappalyzer:
         pattern = pattern.split('\\;')[0]
         pattern = pattern.replace("(?:^|\s)", "\s")
         pattern = pattern[1:] if pattern[0] == "^" else pattern
-        if "^" in pattern:
-            print(pattern)
         return pattern.replace("$", "")
 
     def match(self, data):
-        #scripts, meta = self._parse_html(data)
-        found = self.database.match(data)
-
-        #for script in scripts:
-        #    found |= self.databases["script"].match(script)
-
-        #for k, v in meta.items():
-        #    if k in self.databases["meta"]:
-        #        found |= self.databases["meta"][k].match(v)
-
-        return found
-
-    def _parse_html(self, html):
-        soup = BeautifulSoup(html, 'html.parser')
-        scripts = [script['src'] for script in soup.findAll('script', src=True)]
-        meta = {
-            m['name'].lower(): m['content']
-            for m in soup.findAll('meta', attrs=dict(name=True, content=True))
-        }
-        return scripts, meta
+        return self.database.match(data)
 
 
 class PatternDatabase:
@@ -122,7 +96,7 @@ class HyperscanPatternDatabase(PatternDatabase):
     def _build_db(self):
         self.compiled_patterns = [re.compile(p.encode()) for p in self.patterns]
         self.db = hyperscan.Database()
-        self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
+        self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER] * len(self.patterns))
 
     def match(self, data):
         results = MatchResults()
@@ -163,7 +137,7 @@ if __name__ == "__main__":
                 samples.append(fp.read())
 
     #wa = Wappalyzer(RePatternDatabase)
-    wa = Wappalyzer(HyperscanPatternDatabase)
+    wa = Wappalyzer(HyperscanPatternDatabase, selected_apps={"WordPress", "vBulletin", "Drupal", "Adminer", "Sentry", "Disqus"})
 
     start = datetime.now()
     for _ in range(iterations):
