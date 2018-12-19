@@ -166,8 +166,10 @@ class HyperscanPatternDatabase(PatternDatabase):
                 version = re.sub(self.__regex_conditional_match, replace_cond_match, version)
                 version = re.sub(self.__regex_unconditional_match, replace_uncond_match, version.encode())
 
-            found[self.app_keys[k]] = version.decode() if version else None
-            #found.append((self.app_keys[k], version.decode() if version else None, self.confidence_tags[k]))
+            if version:
+                found[self.app_keys[k]] = version.decode()
+            elif self.app_keys[k] not in found:
+                found[self.app_keys[k]] = None
 
         return found
 
