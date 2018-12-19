@@ -6,6 +6,7 @@ import os
 import json
 import logging
 
+from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('wappalyzer')
@@ -22,14 +23,17 @@ class Wappalyzer:
         self.active_apps = selected_apps
         self.app_keys = []
         self.expressions = []
+        self.version_tags = []
+        self.confidence_tags = []
         self.databases = {}
-        self._build_db(apps_path)
 
-    def _build_db(self, apps_path):
         with open(apps_path) as fp:
-            apps = json.load(fp)['apps']
+            self.apps = json.load(fp)['apps']
 
-        for app, values in apps.items():
+        self._build_db()
+
+    def _build_db(self):
+        for app, values in self.apps.items():
             if self.active_apps and app not in self.active_apps:
                 continue
 
@@ -37,48 +41,79 @@ class Wappalyzer:
                 obj = values["html"]
                 if isinstance(obj, list):
                     for expr in obj:
-                        self.expressions.append(expr)
-                        self.app_keys.append(app)
+                        pattern, version, confidence = self._prepare_pattern(expr, False)
+                        self._add_pattern(pattern, version, confidence, app)
                 else:
-                    self.expressions.append(obj)
-                    self.app_keys.append(app)
+                    pattern, version, confidence = self._prepare_pattern(obj, False)
+                    self._add_pattern(pattern, version, confidence, app)
 
             if "script" in values:
                 obj = values["script"]
                 if isinstance(obj, list):
                     for expr in obj:
                         # TODO: make it more robust. case sensitivity, quotation marks, etc.
-                        self.expressions.append("<script[^>]* src=\"{}\"".format(self._clean_inline(expr)))
-                        self.app_keys.append(app)
+                        pattern, version, confidence = self._prepare_pattern(expr, True)
+                        self._add_pattern("<script[^>]* src=\"{}\"".format(pattern), version, confidence, app)
 
             if "meta" in values:
                 for key, value in values["meta"].items():
+                    pattern, version, confidence = self._prepare_pattern(value, True)
                     if not value:
                         expr = "<meta[^>]* name=\"{}\"".format(key)
                     else:
-                        expr = "<meta[^>]* name=\"{}\" content=\"{}\"".format(key, self._clean_inline(value))
-                    self.expressions.append(expr)
-                    self.app_keys.append(app)
+                        expr = "<meta[^>]* name=\"{}\" content=\"{}\"".format(key, pattern)
+                    self._add_pattern(expr, version, confidence, app)
 
-        self.database = self.engine(self.expressions, self.app_keys)
+        self.database = self.engine(self.expressions, self.version_tags, self.confidence_tags, self.app_keys)
 
-    def _clean(self, pattern):
-        pattern = pattern.split('\\;')[0]
-        return pattern.encode()
+    def _add_pattern(self, pattern, version, confidence, app_key):
+        self.expressions.append(pattern)
+        self.version_tags.append(version)
+        self.confidence_tags.append(confidence)
+        self.app_keys.append(app_key)
 
-    def _clean_inline(self, pattern):
-        pattern = pattern.split('\\;')[0]
-        pattern = pattern.replace("(?:^|\s)", "\s")
-        pattern = pattern[1:] if pattern[0] == "^" else pattern
-        return pattern.replace("$", "")
+    def _prepare_pattern(self, pattern, inline):
+        pattern_and_tags = pattern.split('\\;')
+        pattern = pattern_and_tags[0]
 
-    def match(self, data):
-        return self.database.match(data)
+        confidence, version = 100, None
+        for tag in pattern_and_tags[1:]:
+            k, v = tag.split(':', 1)
+            if k == 'confidence':
+                confidence = int(v)
+            elif k == 'version':
+                version = v
+
+        if inline and pattern:
+            pattern = pattern.replace("(?:^|\s)", "\s")
+            pattern = pattern[1:] if pattern[0] == "^" else pattern
+            pattern = pattern.replace("$", "")
+
+        return pattern, version, confidence
+
+    def match(self, data, include_implied=True):
+        found = self.database.match(data)
+
+        if include_implied:
+            for app in list(found.keys()):
+                if "implies" not in self.apps[app]:
+                    continue
+
+                implies = self.apps[app]["implies"]
+                implies = implies if isinstance(implies, list) else [implies]
+
+                for implied_app in implies:
+                    if implied_app not in found:
+                        found[implied_app] = None
+
+        return found
 
 
 class PatternDatabase:
-    def __init__(self, patterns, app_keys):
+    def __init__(self, patterns, version_tags, confidence_tags, app_keys):
         self.patterns = patterns
+        self.version_tags = version_tags
+        self.confidence_tags = confidence_tags
         self.app_keys = app_keys
 
         start = datetime.now()
@@ -93,6 +128,9 @@ class PatternDatabase:
 
 
 class HyperscanPatternDatabase(PatternDatabase):
+    __regex_conditional_match = re.compile(r'\\(?P<position>\d+)\?(?P<a>[\w\\]*)\:(?P<b>[\w\\]*)$')
+    __regex_unconditional_match = re.compile(r'\\(?P<position>\d+)'.encode())
+
     def _build_db(self):
         self.compiled_patterns = [re.compile(p.encode()) for p in self.patterns]
         self.db = hyperscan.Database()
@@ -102,11 +140,29 @@ class HyperscanPatternDatabase(PatternDatabase):
         results = MatchResults()
         self.db.scan(data, results)
 
-        found = set()
+        found = {}
         for k, match in results.matches.items():
             begin, end, _, _ = match
-            if self.compiled_patterns[k].search(data[begin:end].encode()):
-                found.add(self.app_keys[k])
+            m = self.compiled_patterns[k].search(data[begin:end].encode())
+            if not m:
+                continue
+
+            # Todo: Consider performance of this
+            def replace_cond_match(obj):
+                pos = int(obj.group('position'))
+                return obj.group('a') if m.group(pos) else obj.group('b')
+
+            def replace_uncond_match(obj):
+                pos = int(obj.group('position'))
+                return m.group(pos)
+
+            version = self.version_tags[k]
+            if version:
+                version = re.sub(self.__regex_conditional_match, replace_cond_match, version)
+                version = re.sub(self.__regex_unconditional_match, replace_uncond_match, version.encode())
+
+            found[self.app_keys[k]] = version.decode() if version else None
+            #found.append((self.app_keys[k], version.decode() if version else None, self.confidence_tags[k]))
 
         return found
 
@@ -128,7 +184,7 @@ class MatchResults:
 
 
 if __name__ == "__main__":
-    iterations = 100
+    iterations = 1
     samples = []
     path = "test_html"
     for file in os.listdir(path):
@@ -137,12 +193,14 @@ if __name__ == "__main__":
                 samples.append(fp.read())
 
     #wa = Wappalyzer(RePatternDatabase)
-    wa = Wappalyzer(HyperscanPatternDatabase, selected_apps={"WordPress", "vBulletin", "Drupal", "Adminer", "Sentry", "Disqus"})
+    #wa = Wappalyzer(HyperscanPatternDatabase, selected_apps={"Adminer", "WordPress", "vBulletin", "Drupal", "Disqus"})
+    wa = Wappalyzer(HyperscanPatternDatabase)
 
     start = datetime.now()
     for _ in range(iterations):
         for s in samples:
-            wa.match(s)
+            pprint(wa.match(s))
+            #wa.match(s)
 
     duration = datetime.now() - start
     num_checks = iterations*len(samples)
