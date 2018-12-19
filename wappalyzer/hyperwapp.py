@@ -6,6 +6,7 @@ import os
 import json
 import logging
 
+import sys
 from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
@@ -21,11 +22,8 @@ class Wappalyzer:
             self.engine = pattern_db
 
         self.active_apps = selected_apps
-        self.app_keys = []
-        self.expressions = []
-        self.version_tags = []
-        self.confidence_tags = []
-        self.databases = {}
+        self.app_keys, self.expressions, self.version_tags, self.confidence_tags = [], [], [], []
+        self.header_databases = {}
 
         with open(apps_path) as fp:
             self.apps = json.load(fp)['apps']
@@ -33,6 +31,7 @@ class Wappalyzer:
         self._build_db()
 
     def _build_db(self):
+        header_expressions, header_versions, header_confidence, header_apps = {}, {}, {}, {}
         for app, values in self.apps.items():
             if self.active_apps and app not in self.active_apps:
                 continue
@@ -64,7 +63,21 @@ class Wappalyzer:
                         expr = "<meta[^>]* name=\"{}\" content=\"{}\"".format(key, pattern)
                     self._add_pattern(expr, version, confidence, app)
 
+            if "headers" in values:
+                for key, value in values["headers"].items():
+                    pattern, version, confidence = self._prepare_pattern(value, True)
+                    if not pattern:
+                        pattern = ".*"
+
+                    header_expressions.setdefault(key, []).append(pattern)
+                    header_versions.setdefault(key, []).append(version)
+                    header_confidence.setdefault(key, []).append(confidence)
+                    header_apps.setdefault(key, []).append(app)
+
         self.database = self.engine(self.expressions, self.version_tags, self.confidence_tags, self.app_keys)
+
+        for header in header_expressions.keys():
+            self.header_databases[header] = self.engine(header_expressions[header], header_versions[header], header_confidence[header], header_apps[header])
 
     def _add_pattern(self, pattern, version, confidence, app_key):
         self.expressions.append(pattern)
@@ -91,8 +104,15 @@ class Wappalyzer:
 
         return pattern, version, confidence
 
-    def match(self, data, include_implied=True):
+    def match(self, data, headers=None, include_implied=True):
+        if not headers:
+            headers = {}
+
         found = self.database.match(data)
+        for k, v in headers.items():
+            if k in self.header_databases:
+                # Todo: Do not overwrite old version results
+                found.update(self.header_databases[k].match(v))
 
         if not include_implied:
             return found
@@ -139,7 +159,7 @@ class HyperscanPatternDatabase(PatternDatabase):
     def _build_db(self):
         self.compiled_patterns = [re.compile(p.encode()) for p in self.patterns]
         self.db = hyperscan.Database()
-        self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER] * len(self.patterns))
+        self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
 
     def match(self, data):
         results = MatchResults()
@@ -206,7 +226,7 @@ if __name__ == "__main__":
     start = datetime.now()
     for _ in range(iterations):
         for s in samples:
-            pprint(wa.match(s))
+            pprint(wa.match(s, headers={"Server": "Ubuntu"}))
             #wa.match(s)
 
     duration = datetime.now() - start
