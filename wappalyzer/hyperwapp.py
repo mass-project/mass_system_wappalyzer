@@ -16,7 +16,7 @@ log.setLevel(logging.DEBUG)
 class Wappalyzer:
     def __init__(self, pattern_db=None, apps_path='data/apps.json', selected_apps=None):
         if not pattern_db:
-            self.engine = RePatternDatabase
+            self.engine = HyperscanPatternDatabase
         else:
             self.engine = pattern_db
 
@@ -94,17 +94,22 @@ class Wappalyzer:
     def match(self, data, include_implied=True):
         found = self.database.match(data)
 
-        if include_implied:
-            for app in list(found.keys()):
-                if "implies" not in self.apps[app]:
-                    continue
+        if not include_implied:
+            return found
 
-                implies = self.apps[app]["implies"]
-                implies = implies if isinstance(implies, list) else [implies]
+        queue = set(found.keys())
+        while queue:
+            app = queue.pop()
+            if "implies" not in self.apps[app]:
+                continue
 
-                for implied_app in implies:
-                    if implied_app not in found:
-                        found[implied_app] = None
+            implies = self.apps[app]["implies"]
+            implies = implies if isinstance(implies, list) else [implies]
+
+            for implied_app in implies:
+                if implied_app not in found:
+                    found[implied_app] = None
+                    queue.add(implied_app)
 
         return found
 
