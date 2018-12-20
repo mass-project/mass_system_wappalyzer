@@ -127,6 +127,7 @@ class Wappalyzer:
             implies = implies if isinstance(implies, list) else [implies]
 
             for implied_app in implies:
+                implied_app, _, _ = self._prepare_pattern(implied_app, False)
                 if implied_app not in found:
                     found[implied_app] = None
                     queue.add(implied_app)

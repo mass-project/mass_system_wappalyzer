@@ -12,9 +12,10 @@ NUM_CONNS_PER_HOST = 100
 
 async def do_request(sem, session, wa, url):
     async with sem:
-        print("Request starting: {}".format(url))
+        #print("Request starting: {}".format(url))
         resp = await session.get(url.encode())
-        print(url, wa.match(resp.text))
+        headers = {v[0].decode(): v[1].decode() for v in resp.headers._HeaderDict__dict.values()}
+        print(url, wa.match(resp.text, headers))
         #print("Request complete: {}".format(url))
 
 
@@ -22,14 +23,15 @@ async def main(loop, wa):
     resolver = Resolver(loop, ipv6=False)
     session = Session(NUM_CONNS_PER_HOST, loop, resolver=resolver)
     requests = []
-    sem = asyncio.Semaphore(50)
-    with open('majestic_1000.csv') as csvfile:
+    sem = asyncio.Semaphore(100)
+    with open('majestic_10000.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for row in reader:
             url = 'https://' + row[2] + '/'
             task = asyncio.ensure_future(do_request(sem, session, wa, url))
             requests.append(task)
+
     try:
         await asyncio.gather(*requests, return_exceptions=True)
     except DNSError:
