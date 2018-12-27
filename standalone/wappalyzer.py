@@ -5,7 +5,7 @@ import logging
 
 from pprint import pprint
 
-from standalone.pattern_db import HyperscanPatternDatabase
+from pattern_db import HyperscanPatternDatabase
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('wappalyzer')
@@ -143,8 +143,8 @@ if __name__ == "__main__":
                 samples.append(fp.read())
 
     #wa = Wappalyzer(RePatternDatabase)
-    wa = Wappalyzer(HyperscanPatternDatabase, selected_apps={"Adminer", "WordPress", "vBulletin", "Drupal", "Disqus"})
-    #wa = Wappalyzer(HyperscanPatternDatabase)
+    #wa = Wappalyzer(HyperscanPatternDatabase, selected_apps={"Adminer", "WordPress", "vBulletin", "Drupal", "Disqus"})
+    wa = Wappalyzer(HyperscanPatternDatabase)
 
     start = datetime.now()
     for _ in range(iterations):

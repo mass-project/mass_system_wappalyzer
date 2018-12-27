@@ -39,7 +39,7 @@ async def main(loop, wa):
 
 
 if __name__ == '__main__':
-    wa = Wappalyzer(apps_path="../wappalyzer/data/apps.json")
+    wa = Wappalyzer()
 
     loop = uvloop.new_event_loop()
     asyncio.set_event_loop(loop)
