@@ -14,7 +14,6 @@ def input_reader(url_queue):
             url = 'https://' + row[2] + '/'
             url_queue.put(url)
             #print("Enqueuing", url)
-    url_queue.put(None)
 
 
 def wappalyzer(wa, in_queue, out_queue):
@@ -42,19 +41,24 @@ def result_writer(queue):
 
 def main():
     num_wa = cpu_count()
+    num_fetch = 2
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
-    p_http_reciever = Process(target=aio_handle_requests, args=(url_queue, match_queue))
+    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
     p_result = Process(target=result_writer, args=(result_queue,))
 
-    for p in [p_http_reciever, p_result] + p_wappalyzer:
+    for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
     input_reader(url_queue)
+    for _ in range(num_fetch):
+        url_queue.put(None)
 
-    p_http_reciever.join()
+    for p in p_http_reciever:
+        p.join()
+
     for _ in range(num_wa):
         match_queue.put(None)
 
