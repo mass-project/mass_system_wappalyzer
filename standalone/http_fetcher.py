@@ -33,28 +33,28 @@ def wappalyzer(wa, in_queue, out_queue):
             print("wappalyzer", response, e, file=sys.stderr)
 
 
-def result_writer(queue):
+def result_writer(result_queue):
     written_total, written_last = 0, 0
     last_out = time_begin = datetime.now()
-    with open("results.txt", "w") as fp:
+    with open("results.txt", "w") as fp_results, open("rates.txt", "w") as fp_rates:
         while True:
             delta_seconds = (datetime.now() - last_out).total_seconds()
             if delta_seconds > 1:
                 time_total = (datetime.now() - time_begin).total_seconds()
                 args = {"rate": (written_total-written_last)/delta_seconds, "num": written_total, "time": time_total}
-                #print("Time:\t{time:.2f}\t\tResult rate:\t{rate:.2f}/s\t\tTotal results:\t{num}".format(**args))
-                print("{time:.2f}\t\t{rate:.2f}/s\t\t{num}".format(**args))
+                print("Time:\t{time:.2f}\t\tResult rate:\t{rate:.2f}/s\t\tTotal results:\t{num}".format(**args))
+                print("{time}\t{rate}\t{num}".format(**args), file=fp_rates)
                 written_last = written_total
                 last_out = datetime.now()
 
             try:
-                result = queue.get(timeout=1)
+                result = result_queue.get(timeout=1)
             except queue.Empty:
                 continue
 
             if not result:
                 break
-            print(result, file=fp)
+            print(result, file=fp_results)
             written_total += 1
 
 
