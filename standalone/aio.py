@@ -27,9 +27,9 @@ async def bound_fetch(sem, url, result_queue):
         await fetch(url, result_queue)
 
 
-async def run_requests(loop, url_queue, result_queue):
+async def run_requests(loop, url_queue, result_queue, num_connections):
     requests = []
-    sem = asyncio.Semaphore(10)
+    sem = asyncio.Semaphore(num_connections)
 
     while True:
         url = url_queue.get()
@@ -44,7 +44,7 @@ async def run_requests(loop, url_queue, result_queue):
     await asyncio.gather(*requests)
 
 
-def aio_handle_requests(url_queue, result_queue):
+def aio_handle_requests(url_queue, result_queue, num_connections):
     loop = uvloop.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(run_requests(loop, url_queue, result_queue))
+    loop.run_until_complete(run_requests(loop, url_queue, result_queue, num_connections))

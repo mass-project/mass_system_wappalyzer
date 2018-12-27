@@ -42,10 +42,11 @@ def result_writer(queue):
 def main():
     num_wa = cpu_count()
     num_fetch = 2
+    num_connections = 100
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
-    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue)) for _ in range(num_fetch)]
+    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, num_connections/num_fetch)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
     p_result = Process(target=result_writer, args=(result_queue,))
 
