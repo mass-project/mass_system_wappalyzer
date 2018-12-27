@@ -5,6 +5,7 @@ from multiprocessing import Process, Queue, cpu_count
 from datetime import datetime, timedelta
 import csv
 import sys
+import queue
 
 
 def input_reader(url_queue):
@@ -34,16 +35,23 @@ def wappalyzer(wa, in_queue, out_queue):
 
 def result_writer(queue):
     written_total, written_last = 0, 0
-    last_out = datetime.now()
+    last_out = time_begin = datetime.now()
     with open("results.txt", "w") as fp:
         while True:
             delta_seconds = (datetime.now() - last_out).total_seconds()
             if delta_seconds > 1:
-                print("Result rate:\t{rate:.2f}/s\tTotal results:\t\t{num}".format(rate=(written_total-written_last)/delta_seconds, num=written_total))
+                time_total = (datetime.now() - time_begin).total_seconds()
+                args = {"rate": (written_total-written_last)/delta_seconds, "num": written_total, "time": time_total}
+                #print("Time:\t{time:.2f}\t\tResult rate:\t{rate:.2f}/s\t\tTotal results:\t{num}".format(**args))
+                print("{time:.2f}\t\t{rate:.2f}/s\t\t{num}".format(**args))
                 written_last = written_total
                 last_out = datetime.now()
 
-            result = queue.get()
+            try:
+                result = queue.get(timeout=1)
+            except queue.Empty:
+                continue
+
             if not result:
                 break
             print(result, file=fp)
