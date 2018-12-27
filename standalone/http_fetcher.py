@@ -1,6 +1,8 @@
 from aio import aio_handle_requests
 from wappalyzer import Wappalyzer
 
+from setproctitle import setproctitle
+
 from multiprocessing import Process, Queue, cpu_count
 from datetime import datetime, timedelta
 import csv
@@ -20,8 +22,10 @@ def input_reader(url_queue):
 
 
 def wappalyzer(wa, in_queue, out_queue):
+    setproctitle("wappalyzer: wappalyzer")
+
     while True:
-        response = in_queue.get(timeout=5)
+        response = in_queue.get()
         #print(response)
         if not response:
             break
@@ -34,6 +38,8 @@ def wappalyzer(wa, in_queue, out_queue):
 
 
 def result_writer(result_queue):
+    setproctitle("wappalyzer: result_writer")
+
     written_total, written_last = 0, 0
     last_out = time_begin = datetime.now()
     with open("results.txt", "w") as fp_results, open("rates.txt", "w") as fp_rates:
@@ -56,7 +62,6 @@ def result_writer(result_queue):
                 break
             print(result, file=fp_results)
             written_total += 1
-
 
 
 def main():

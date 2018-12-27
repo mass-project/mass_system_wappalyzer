@@ -6,5 +6,6 @@ beautifulsoup4==4.6
 zmq==0.0.0
 raven==6.9.0
 hyperscan==0.0.2
+setproctitle==1.1.10
 git+https://github.com/mass-project/mass_api_client@0.3_process-fix
 git+https://github.com/Silberschleier/stomp.py
