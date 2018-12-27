@@ -33,14 +33,14 @@ def wappalyzer(wa, in_queue, out_queue):
 
 
 def result_writer(queue):
-    written_total = 0
+    written_total, written_last = 0, 0
     last_out = datetime.now()
     with open("results.txt", "w") as fp:
         while True:
             delta_seconds = (datetime.now() - last_out).total_seconds()
             if delta_seconds > 1:
-                print("Results: \t{:.2f}/s".format(written_total/delta_seconds))
-                written_total = 0
+                print("Result rate:\t{rate:.2f}/s\tTotal results:\t\t{num}".format(rate=(written_total-written_last)/delta_seconds, num=written_total))
+                written_last = written_total
                 last_out = datetime.now()
 
             result = queue.get()
