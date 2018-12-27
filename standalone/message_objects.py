@@ -6,4 +6,5 @@ class Response:
         self.url = url
         self.content = content
 
-        #print("Created Response", status, url, headers)
+    def __str__(self):
+        return "({}, {})".format(self.status, self.url)

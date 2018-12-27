@@ -5,6 +5,7 @@ import uvloop
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.resolver import AsyncResolver
 import socket
+import sys
 
 
 async def fetch(url, result_queue):
@@ -19,7 +20,7 @@ async def fetch(url, result_queue):
                 r = Response(response.status, headers, url, await response.read())
                 result_queue.put(r)
     except Exception as e:
-        print(e)
+        print("fetch", url, e, file=sys.stderr)
 
 
 async def bound_fetch(sem, url, result_queue):

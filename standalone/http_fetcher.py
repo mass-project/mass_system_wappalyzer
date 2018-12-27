@@ -2,7 +2,9 @@ from aio import aio_handle_requests
 from wappalyzer import Wappalyzer
 
 from multiprocessing import Process, Queue, cpu_count
+from datetime import datetime, timedelta
 import csv
+import sys
 
 
 def input_reader(url_queue):
@@ -22,21 +24,31 @@ def wappalyzer(wa, in_queue, out_queue):
         #print(response)
         if not response:
             break
+
         try:
             matches = wa.match(response.content.decode(), response.headers)
             out_queue.put({'status': response.status, 'url': response.url, 'matches': matches})
         except Exception as e:
-            print(e)
+            print("wappalyzer", response, e, file=sys.stderr)
 
 
 def result_writer(queue):
+    written_total = 0
+    last_out = datetime.now()
     with open("results.txt", "w") as fp:
         while True:
+            delta_seconds = (datetime.now() - last_out).total_seconds()
+            if delta_seconds > 1:
+                print("Results: \t{:.2f}/s".format(written_total/delta_seconds))
+                written_total = 0
+                last_out = datetime.now()
+
             result = queue.get()
-            #print("Writing ", result)
             if not result:
                 break
             print(result, file=fp)
+            written_total += 1
+
 
 
 def main():
