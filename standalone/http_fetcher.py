@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import csv
 import sys
 import queue
+import traceback
 
 
 def input_reader(url_queue):
@@ -34,6 +35,7 @@ def wappalyzer(wa, in_queue, out_queue):
             matches = wa.match(response.content, response.headers)
             out_queue.put({'status': response.status, 'url': response.url, 'matches': matches})
         except Exception as e:
+            traceback.print_exc(file=sys.stderr)
             print("wappalyzer", response, e, file=sys.stderr)
 
 
@@ -67,7 +69,7 @@ def result_writer(result_queue):
 def main():
     num_wa = 2
     num_fetch = 7
-    num_connections = 1800
+    num_connections = 1200
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
