@@ -22,9 +22,9 @@ def csv_input_reader(url_queue):
 
 
 def txt_input_reader(url_queue):
-    with open('wordpress.txt') as fp:
+    with open('test.txt') as fp:
         for url in fp:
-            url_queue.put(url)
+            url_queue.put(url.strip())
 
 
 def wappalyzer(wa, in_queue, out_queue):
