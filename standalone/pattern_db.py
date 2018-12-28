@@ -24,10 +24,10 @@ class PatternDatabase:
 
 class HyperscanPatternDatabase(PatternDatabase):
     __regex_conditional_match = re.compile(r'\\(?P<position>\d+)\?(?P<a>[\w\\]*)\:(?P<b>[\w\\]*)$')
-    __regex_unconditional_match = re.compile(r'\\(?P<position>\d+)'.encode())
+    __regex_unconditional_match = re.compile(r'\\(?P<position>\d+)')
 
     def _build_db(self):
-        self.compiled_patterns = [re.compile(p.encode()) for p in self.patterns]
+        self.compiled_patterns = [re.compile(p) for p in self.patterns]
         self.db = hyperscan.Database()
         self.db.compile([p.encode() for p in self.patterns], flags=[hyperscan.HS_FLAG_PREFILTER|hyperscan.HS_FLAG_ALLOWEMPTY] * len(self.patterns))
 
@@ -38,7 +38,7 @@ class HyperscanPatternDatabase(PatternDatabase):
         found = {}
         for k, match in results.matches.items():
             begin, end, _, _ = match
-            m = self.compiled_patterns[k].search(data[begin:end].encode())
+            m = self.compiled_patterns[k].search(data[begin:end])
             if not m:
                 continue
 
@@ -54,10 +54,10 @@ class HyperscanPatternDatabase(PatternDatabase):
             version = self.version_tags[k]
             if version:
                 version = re.sub(self.__regex_conditional_match, replace_cond_match, version)
-                version = re.sub(self.__regex_unconditional_match, replace_uncond_match, version.encode())
+                version = re.sub(self.__regex_unconditional_match, replace_uncond_match, version)
 
             if version:
-                found[self.app_keys[k]] = version.decode()
+                found[self.app_keys[k]] = version
             elif self.app_keys[k] not in found:
                 found[self.app_keys[k]] = None
 
