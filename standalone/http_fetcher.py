@@ -11,7 +11,7 @@ import queue
 
 
 def input_reader(url_queue):
-    with open('majestic_1000.csv') as csvfile:
+    with open('majestic_million.csv') as csvfile:
     #with open('test_sites.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
@@ -65,9 +65,9 @@ def result_writer(result_queue):
 
 
 def main():
-    num_wa = cpu_count()
-    num_fetch = 2
-    num_connections = 100
+    num_wa = 2
+    num_fetch = 7
+    num_connections = 1800
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()

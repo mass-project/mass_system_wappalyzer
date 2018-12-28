@@ -12,7 +12,7 @@ import sys
 
 async def fetch(url, result_queue, resolver):
     try:
-        conn = TCPConnector(resolver=resolver, family=socket.AF_INET, limit=100, verify_ssl=False)
+        conn = TCPConnector(resolver=resolver, family=socket.AF_INET, limit=100, verify_ssl=False, enable_cleanup_closed=True, force_close=True)
         timeout = ClientTimeout(total=5, connect=None, sock_connect=None, sock_read=None)
         async with ClientSession(connector=conn, timeout=timeout) as session:
             async with session.get(url, allow_redirects=True) as response:
