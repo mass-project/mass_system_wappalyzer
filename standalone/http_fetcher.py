@@ -31,7 +31,7 @@ def wappalyzer(wa, in_queue, out_queue):
             break
 
         try:
-            matches = wa.match(response.content.decode(), response.headers)
+            matches = wa.match(response.content, response.headers)
             out_queue.put({'status': response.status, 'url': response.url, 'matches': matches})
         except Exception as e:
             print("wappalyzer", response, e, file=sys.stderr)

@@ -17,7 +17,8 @@ async def fetch(url, result_queue, resolver):
         async with ClientSession(connector=conn, timeout=timeout) as session:
             async with session.get(url, allow_redirects=True) as response:
                 headers = {k: v for k, v in response.headers.items()}
-                r = Response(response.status, headers, url, await response.read())
+                content = await response.read()
+                r = Response(response.status, headers, url, content.decode(response.get_encoding(), 'ignore'))
                 result_queue.put(r)
     except Exception as e:
         print("fetch", url, e, file=sys.stderr)
