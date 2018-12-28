@@ -118,6 +118,9 @@ class Wappalyzer:
         queue = set(found.keys())
         while queue:
             app = queue.pop()
+            if app not in self.apps:
+                continue
+
             if "implies" not in self.apps[app]:
                 continue
 
