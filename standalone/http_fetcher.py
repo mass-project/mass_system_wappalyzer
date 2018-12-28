@@ -10,7 +10,7 @@ import sys
 import queue
 
 
-def input_reader(url_queue):
+def csv_input_reader(url_queue):
     with open('majestic_1000.csv') as csvfile:
     #with open('test_sites.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -19,6 +19,12 @@ def input_reader(url_queue):
             url = 'https://' + row[2] + '/'
             url_queue.put(url)
             #print("Enqueuing", url)
+
+
+def txt_input_reader(url_queue):
+    with open('wordpress.txt') as fp:
+        for url in fp:
+            url_queue.put(url)
 
 
 def wappalyzer(wa, in_queue, out_queue):
@@ -78,7 +84,7 @@ def main():
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    input_reader(url_queue)
+    txt_input_reader(url_queue)
     for _ in range(num_fetch):
         url_queue.put(None)
 
