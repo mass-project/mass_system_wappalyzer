@@ -20,7 +20,7 @@ async def fetch(url, match_queue, result_queue, resolver):
                 headers = {k: v for k, v in response.headers.items()}
                 content = await response.read()
                 r = Response(response.status, headers, url, content.decode('utf-8', 'ignore'))
-                result_queue.put(r)
+                match_queue.put(r)
     except Exception as e:
         result_queue.put(ExceptionResult(url, e, format_exc()))
 

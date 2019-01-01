@@ -49,22 +49,32 @@ def wappalyzer(wa, match_queue, result_queue):
 
 def result_writer(result_queue):
     setproctitle("wappalyzer: result_writer")
+    refresh_rate = 5
 
-    written_total, written_last = 0, 0
+    written_total, written_last, successful, successful_last = 0, 0, 0, 0
     last_out = time_begin = datetime.now()
     with open("results.txt", "w") as fp_results, open("exceptions.txt", "w") as fp_exc, open("rates.txt", "w") as fp_rates:
         while True:
             delta_seconds = (datetime.now() - last_out).total_seconds()
-            if delta_seconds > 1:
+            if delta_seconds > refresh_rate:
                 time_total = (datetime.now() - time_begin).total_seconds()
-                args = {"rate": (written_total-written_last)/delta_seconds, "num": written_total, "time": time_total}
-                print("Time:\t{time:.2f}\t\tResult rate:\t{rate:.2f}/s\t\tTotal results:\t{num}".format(**args))
-                print("{time}\t{rate}\t{num}".format(**args), file=fp_rates)
+                args = {
+                    "results": (written_total-written_last)/delta_seconds,
+                    "successes": (successful-successful_last)/delta_seconds,
+                    "errors": (written_total-successful-written_last+successful_last)/delta_seconds,
+                    "success_rate": (successful-successful_last)*100/(written_total-written_last),
+                    "num": written_total,
+                    "time": time_total
+                }
+                print("Results:\t{results:.2f}/s\t\tSuccesses:\t{successes:.2f}/s\t\tErrors:\t{errors:.2f}/s\t\t".format(**args) +
+                      "Success Rate:\t{success_rate:.2f}%\t\tTime:\t{time:.2f}\t\tTotal results:\t{num}".format(**args))
+                print("{time}\t{num}\t{results}\t{successes}\t{errors}\t{success_rate}".format(**args), file=fp_rates)
                 written_last = written_total
+                successful_last = successful
                 last_out = datetime.now()
 
             try:
-                result = result_queue.get(timeout=1)
+                result = result_queue.get(timeout=refresh_rate)
             except queue.Empty:
                 continue
 
@@ -72,6 +82,7 @@ def result_writer(result_queue):
                 break
             if isinstance(result, SuccessfulResult):
                 print(result.serialize(), file=fp_results)
+                successful += 1
             else:
                 print(result.serialize(), file=fp_exc)
             written_total += 1
