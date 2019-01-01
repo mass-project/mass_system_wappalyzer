@@ -62,10 +62,13 @@ def result_writer(result_queue):
                     "results": (written_total-written_last)/delta_seconds,
                     "successes": (successful-successful_last)/delta_seconds,
                     "errors": (written_total-successful-written_last+successful_last)/delta_seconds,
-                    "success_rate": (successful-successful_last)*100/(written_total-written_last),
+                    "success_rate": 0,
                     "num": written_total,
                     "time": time_total
                 }
+                if written_total != written_last:
+                    args["success_rate"] = (successful-successful_last)*100/(written_total-written_last)
+
                 print("Results:\t{results:.2f}/s\t\tSuccesses:\t{successes:.2f}/s\t\tErrors:\t{errors:.2f}/s\t\t".format(**args) +
                       "Success Rate:\t{success_rate:.2f}%\t\tTime:\t{time:.2f}\t\tTotal results:\t{num}".format(**args))
                 print("{time}\t{num}\t{results}\t{successes}\t{errors}\t{success_rate}".format(**args), file=fp_rates)
