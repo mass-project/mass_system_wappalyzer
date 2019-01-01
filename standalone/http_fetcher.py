@@ -1,10 +1,12 @@
 from aio import aio_handle_requests
 from wappalyzer import Wappalyzer
+from message_objects import SuccessfulResult, ExceptionResult
 
 from setproctitle import setproctitle
+from traceback import format_exc
 
 from multiprocessing import Process, Queue, cpu_count
-from datetime import datetime, timedelta
+from datetime import datetime
 import csv
 import sys
 import queue
@@ -28,21 +30,21 @@ def txt_input_reader(url_queue):
             url_queue.put(url.strip())
 
 
-def wappalyzer(wa, in_queue, out_queue):
+def wappalyzer(wa, match_queue, result_queue):
     setproctitle("wappalyzer: wappalyzer")
 
     while True:
-        response = in_queue.get()
-        #print(response)
+        response = match_queue.get()
         if not response:
             break
 
         try:
             matches = wa.match(response.content, response.headers)
-            out_queue.put({'status': response.status, 'url': response.url, 'matches': matches})
+            result_queue.put(SuccessfulResult(response.url, response.status, matches))
         except Exception as e:
             traceback.print_exc(file=sys.stderr)
             print("wappalyzer", response, e, file=sys.stderr)
+            result_queue.put(ExceptionResult(response.url, e, format_exc()))
 
 
 def result_writer(result_queue):
@@ -50,7 +52,7 @@ def result_writer(result_queue):
 
     written_total, written_last = 0, 0
     last_out = time_begin = datetime.now()
-    with open("results.txt", "w") as fp_results, open("rates.txt", "w") as fp_rates:
+    with open("results.txt", "w") as fp_results, open("exceptions.txt", "w") as fp_exc, open("rates.txt", "w") as fp_rates:
         while True:
             delta_seconds = (datetime.now() - last_out).total_seconds()
             if delta_seconds > 1:
@@ -68,7 +70,10 @@ def result_writer(result_queue):
 
             if not result:
                 break
-            print(result, file=fp_results)
+            if isinstance(result, SuccessfulResult):
+                print(result.serialize(), file=fp_results)
+            else:
+                print(result.serialize(), file=fp_exc)
             written_total += 1
 
 
@@ -79,14 +84,14 @@ def main():
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
-    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, num_connections/num_fetch)) for _ in range(num_fetch)]
+    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, num_connections/num_fetch)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
     p_result = Process(target=result_writer, args=(result_queue,))
 
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    txt_input_reader(url_queue)
+    csv_input_reader(url_queue)
     for _ in range(num_fetch):
         url_queue.put(None)
 

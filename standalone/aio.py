@@ -1,4 +1,4 @@
-from message_objects import Response
+from message_objects import Response, ExceptionResult
 
 from setproctitle import setproctitle
 
@@ -7,10 +7,11 @@ import uvloop
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.resolver import AsyncResolver
 import socket
-import sys
+
+from traceback import format_exc
 
 
-async def fetch(url, result_queue, resolver):
+async def fetch(url, match_queue, result_queue, resolver):
     try:
         conn = TCPConnector(resolver=resolver, family=socket.AF_INET, limit=100, verify_ssl=False, enable_cleanup_closed=True, force_close=True)
         timeout = ClientTimeout(total=5, connect=None, sock_connect=None, sock_read=None)
@@ -21,15 +22,15 @@ async def fetch(url, result_queue, resolver):
                 r = Response(response.status, headers, url, content.decode('utf-8', 'ignore'))
                 result_queue.put(r)
     except Exception as e:
-        print("fetch", url, e, file=sys.stderr)
+        result_queue.put(ExceptionResult(url, e, format_exc()))
 
 
-async def bound_fetch(sem, url, result_queue, resolver):
+async def bound_fetch(sem, url, match_queue, result_queue, resolver):
     async with sem:
-        await fetch(url, result_queue, resolver)
+        await fetch(url, match_queue, result_queue, resolver)
 
 
-async def run_requests(loop, url_queue, result_queue, num_connections):
+async def run_requests(loop, url_queue, match_queue, result_queue, num_connections):
     requests = []
     sem = asyncio.Semaphore(num_connections)
     resolver = AsyncResolver()
@@ -41,15 +42,15 @@ async def run_requests(loop, url_queue, result_queue, num_connections):
         if not url:
             break
 
-        task = asyncio.ensure_future(bound_fetch(sem, url, result_queue, resolver))
+        task = asyncio.ensure_future(bound_fetch(sem, url, match_queue, result_queue, resolver))
         requests.append(task)
 
     await asyncio.gather(*requests)
 
 
-def aio_handle_requests(url_queue, result_queue, num_connections):
+def aio_handle_requests(url_queue, match_queue, result_queue, num_connections):
     setproctitle("wappalyzer: aio_handle_requests")
 
     loop = uvloop.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(run_requests(loop, url_queue, result_queue, num_connections))
+    loop.run_until_complete(run_requests(loop, url_queue, match_queue, result_queue, num_connections))
