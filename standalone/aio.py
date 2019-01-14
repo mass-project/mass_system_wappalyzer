@@ -37,7 +37,12 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
     resolver = AsyncResolver()
 
     while True:
-        url = url_queue.get()
+        try:
+            url = url_queue.get(timeout=0.1)
+        except Empty:
+            await asyncio.gather(*requests)
+            requests = []
+            continue
 
         # Fetch the None to end the processing
         if not url:
