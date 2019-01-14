@@ -55,7 +55,7 @@ def wappalyzer(wa, match_queue, result_queue):
 
 def result_writer(url_queue, match_queue, result_queue):
     setproctitle("wappalyzer: result_writer")
-    refresh_rate = 5
+    refresh_rate = 1
 
     written_total, written_last, successful, successful_last = 0, 0, 0, 0
     last_out = time_begin = datetime.now()
@@ -104,7 +104,7 @@ def result_writer(url_queue, match_queue, result_queue):
 def main():
     num_wa = 2
     num_fetch = 7
-    num_connections = 1200
+    num_connections = 3000
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
