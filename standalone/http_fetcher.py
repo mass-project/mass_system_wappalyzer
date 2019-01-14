@@ -7,26 +7,32 @@ from traceback import format_exc
 
 from multiprocessing import Process, Queue, cpu_count
 from datetime import datetime
+from time import sleep
 import csv
 import sys
 import queue
 import traceback
 
 
-def csv_input_reader(url_queue):
+def _wait_for_queue_level(max_level, *queues):
+    while sum([q.qsize() for q in queues]) >= max_level:
+        sleep(0.2)
+
+
+def csv_input_reader(url_queue, match_queue, result_queue, queue_limit):
     with open('majestic_1000.csv') as csvfile:
-    #with open('test_sites.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for row in reader:
+            _wait_for_queue_level(queue_limit, url_queue, match_queue, result_queue)
             url = 'https://' + row[2] + '/'
             url_queue.put(url)
-            #print("Enqueuing", url)
 
 
-def txt_input_reader(url_queue):
+def txt_input_reader(url_queue, match_queue, result_queue, queue_limit):
     with open('test.txt') as fp:
         for url in fp:
+            _wait_for_queue_level(queue_limit, url_queue, match_queue, result_queue)
             url_queue.put(url.strip())
 
 
@@ -105,7 +111,7 @@ def main():
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    csv_input_reader(url_queue)
+    csv_input_reader(url_queue, match_queue, result_queue, 1000)
     for _ in range(num_fetch):
         url_queue.put(None)
 
