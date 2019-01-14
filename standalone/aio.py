@@ -37,11 +37,7 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
     resolver = AsyncResolver()
 
     while True:
-        try:
-            url = url_queue.get(timeout=0.1)
-        except Empty:
-            await asyncio.gather(*requests)
-            continue
+        url = url_queue.get()
 
         # Fetch the None to end the processing
         if not url:
@@ -49,6 +45,9 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
 
         task = asyncio.ensure_future(bound_fetch(sem, url, match_queue, result_queue, resolver))
         requests.append(task)
+
+        if len(requests)*2 > num_connections:
+            await asyncio.gather(*requests)
 
     await asyncio.gather(*requests)
 
