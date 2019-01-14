@@ -53,7 +53,7 @@ def wappalyzer(wa, match_queue, result_queue):
             result_queue.put(ExceptionResult(response.url, e, format_exc()))
 
 
-def result_writer(result_queue):
+def result_writer(url_queue, match_queue, result_queue):
     setproctitle("wappalyzer: result_writer")
     refresh_rate = 5
 
@@ -70,12 +70,16 @@ def result_writer(result_queue):
                     "errors": (written_total-successful-written_last+successful_last)/delta_seconds,
                     "success_rate": 0,
                     "num": written_total,
-                    "time": time_total
+                    "time": time_total,
+                    "url_queue": url_queue.qsize(),
+                    "match_queue": match_queue.qsize(),
+                    "result_queue": result_queue.qsize()
                 }
                 if written_total != written_last:
                     args["success_rate"] = (successful-successful_last)*100/(written_total-written_last)
 
                 print("Results:\t{results:.2f}/s\t\tSuccesses:\t{successes:.2f}/s\t\tErrors:\t{errors:.2f}/s\t\t".format(**args) +
+                      "Queues:\t{url_queue}/{match_queue}/{result_queue}\t\t".format(**args) +
                       "Success Rate:\t{success_rate:.2f}%\t\tTime:\t{time:.2f}\t\tTotal results:\t{num}".format(**args))
                 print("{time}\t{num}\t{results}\t{successes}\t{errors}\t{success_rate}".format(**args), file=fp_rates)
                 written_last = written_total
@@ -106,7 +110,7 @@ def main():
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
     p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, num_connections/num_fetch)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
-    p_result = Process(target=result_writer, args=(result_queue,))
+    p_result = Process(target=result_writer, args=(url_queue, match_queue, result_queue))
 
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
