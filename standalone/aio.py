@@ -32,11 +32,12 @@ async def bound_fetch(sem, url, match_queue, result_queue, resolver):
 
 
 async def run_requests(loop, url_queue, match_queue, result_queue, num_connections):
-    requests = []
+
     sem = asyncio.Semaphore(num_connections)
     resolver = AsyncResolver()
 
     while True:
+        requests = []
         url = url_queue.get()
 
         # Fetch the None to end the processing
