@@ -15,8 +15,9 @@ import traceback
 
 
 def _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high):
-    while read_total > written_total.value + watermark_low:
-        sleep(0.1)
+    if read_total > written_total.value + watermark_high:
+        while read_total > written_total.value + watermark_low:
+            sleep(0.1)
 
 
 def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
