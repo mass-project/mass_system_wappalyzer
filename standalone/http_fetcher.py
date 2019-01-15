@@ -68,7 +68,7 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
                     "results": (written_total.value-written_last)/delta_seconds,
                     "successes": (successful-successful_last)/delta_seconds,
                     "errors": (written_total.value-successful-written_last+successful_last)/delta_seconds,
-                    "success_rate": (successful-successful_last)*100/(written_total.value-written_last),
+                    "success_rate": (successful-successful_last)*100/(written_total.value-written_last) if written_total.value > 0 else 0,
                     "num": written_total.value,
                     "time": time_total,
                     "url_queue": url_queue.qsize(),
