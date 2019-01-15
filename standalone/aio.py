@@ -40,7 +40,7 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
         try:
             url = url_queue.get(timeout=0.1)
         except Empty:
-            await asyncio.gather(*requests)
+            await asyncio.gather(*requests, loop=loop)
             continue
 
         # Fetch the None to end the processing
@@ -50,7 +50,7 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
         task = asyncio.ensure_future(bound_fetch(sem, url, match_queue, result_queue, resolver))
         requests.append(task)
 
-    await asyncio.gather(*requests)
+    await asyncio.gather(*requests, loop=loop)
 
 
 def aio_handle_requests(url_queue, match_queue, result_queue, num_connections):

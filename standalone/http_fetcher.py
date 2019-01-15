@@ -14,24 +14,25 @@ import queue
 import traceback
 
 
-def _wait_for_queue_limit(read_total, written_total, queue_limit):
-    while read_total > written_total.value + queue_limit:
+def _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high):
+    while read_total > written_total.value + watermark_low:
         sleep(0.1)
 
 
-def csv_input_reader(url_queue, written_total, queue_limit):
+def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
     with open('majestic_1000.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for read_total, row in enumerate(reader):
-            _wait_for_queue_limit(read_total, written_total, queue_limit)
+            _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high)
             url = 'https://' + row[2] + '/'
             url_queue.put(url)
 
 
-def txt_input_reader(url_queue, written_total, queue_limit):
-    with open('test.txt') as fp:
-        for url in fp:
+def txt_input_reader(url_queue, written_total, watermark_low, watermark_high):
+    with open('wordpress.txt') as fp:
+        for read_total, url in enumerate(fp):
+            _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high)
             url_queue.put(url.strip())
 
 
@@ -99,8 +100,8 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
 
 def main():
     num_wa = 2
-    num_fetch = 7
-    num_connections = 1500
+    num_fetch = 12
+    num_connections = 5000
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
@@ -112,7 +113,7 @@ def main():
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    csv_input_reader(url_queue, written_total, 3000)
+    csv_input_reader(url_queue, written_total, 3000, 10000)
     for _ in range(num_fetch):
         url_queue.put(None)
 
