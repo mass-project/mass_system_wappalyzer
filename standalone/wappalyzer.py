@@ -13,7 +13,7 @@ log.setLevel(logging.DEBUG)
 
 
 class Wappalyzer:
-    def __init__(self, pattern_db=None, apps_path="../wappalyzer/data/apps.json", selected_apps=None):
+    def __init__(self, pattern_db=None, apps_path="apps.json", selected_apps=None):
         if not pattern_db:
             self.engine = HyperscanPatternDatabase
         else:
@@ -23,7 +23,7 @@ class Wappalyzer:
         self.app_keys, self.expressions, self.version_tags, self.confidence_tags = [], [], [], []
         self.header_databases = {}
 
-        with open(apps_path) as fp:
+        with open(apps_path, encoding='utf-8') as fp:
             self.apps = json.load(fp)['apps']
 
         self._build_db()

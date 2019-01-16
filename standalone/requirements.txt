@@ -1,0 +1,5 @@
+uvloop==0.11.1
+aiohttp==3.4.4
+aiodns==1.1.1
+hyperscan==0.0.2
+setproctitle==1.1.10

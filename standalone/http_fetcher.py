@@ -100,8 +100,8 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
 
 
 def main():
-    num_wa = 2
-    num_fetch = 12
+    num_wa = 4
+    num_fetch = 6
     num_connections = 5000
 
     wa = Wappalyzer()
@@ -114,7 +114,7 @@ def main():
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    csv_input_reader(url_queue, written_total, 3000, 10000)
+    csv_input_reader(url_queue, written_total, 10000, 15000)
     for _ in range(num_fetch):
         url_queue.put(None)
 
