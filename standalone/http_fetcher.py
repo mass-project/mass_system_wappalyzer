@@ -21,7 +21,7 @@ def _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_hi
 
 
 def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
-    with open('majestic_1000.csv') as csvfile:
+    with open('majestic_million.csv', encoding='utf-8') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for read_total, row in enumerate(reader):
@@ -31,7 +31,7 @@ def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
 
 
 def txt_input_reader(url_queue, written_total, watermark_low, watermark_high):
-    with open('wordpress.txt') as fp:
+    with open('wordpress.txt', encoding='utf-8') as fp:
         for read_total, url in enumerate(fp):
             _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high)
             url_queue.put(url.strip())
@@ -69,7 +69,7 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
                     "results": (written_total.value-written_last)/delta_seconds,
                     "successes": (successful-successful_last)/delta_seconds,
                     "errors": (written_total.value-successful-written_last+successful_last)/delta_seconds,
-                    "success_rate": (successful-successful_last)*100/(written_total.value-written_last) if written_total.value > 0 else 0,
+                    "success_rate": (successful-successful_last)*100/(written_total.value-written_last) if written_total.value-written_last > 0 else 0,
                     "num": written_total.value,
                     "time": time_total,
                     "url_queue": url_queue.qsize(),
