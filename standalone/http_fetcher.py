@@ -4,6 +4,8 @@ from message_objects import SuccessfulResult, ExceptionResult
 
 from setproctitle import setproctitle
 from traceback import format_exc
+from zipfile import ZipFile
+from datetime import datetime
 
 from multiprocessing import Process, Queue, Value
 from datetime import datetime
@@ -12,6 +14,7 @@ import csv
 import sys
 import queue
 import traceback
+import os
 
 
 def _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high):
@@ -21,7 +24,7 @@ def _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_hi
 
 
 def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
-    with open('majestic_million.csv', encoding='utf-8') as csvfile:
+    with open('majestic_10000.csv', encoding='utf-8') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for read_total, row in enumerate(reader):
@@ -100,21 +103,24 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
 
 
 def main():
-    num_wa = 4
-    num_fetch = 6
-    num_connections = 5000
+    num_wa = int(os.getenv('NUM_WA', 4))
+    num_fetch = int(os.getenv('NUM_FETCH', 6))
+    fetch_parallelism = int(os.getenv('FETCH_PARALLELISM', 5000))
+    queue_watermark_high = int(os.getenv('MAX_QUEUE_SIZE', 15000))
+    queue_watermark_low = queue_watermark_high - fetch_parallelism
+
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
     written_total = Value('i', 0)
-    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, num_connections/num_fetch)) for _ in range(num_fetch)]
+    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, fetch_parallelism/num_fetch)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
     p_result = Process(target=result_writer, args=(url_queue, match_queue, result_queue, written_total))
 
     for p in p_http_reciever + [p_result] + p_wappalyzer:
         p.start()
 
-    csv_input_reader(url_queue, written_total, 10000, 15000)
+    txt_input_reader(url_queue, written_total, queue_watermark_low, queue_watermark_high)
     for _ in range(num_fetch):
         url_queue.put(None)
 
@@ -133,3 +139,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
+    out_path = os.path.join(out_directory, "{}.zip".format(date))
+    with ZipFile(out_path, "w") as zip_out:
+        zip_out.write("results.txt")
+        zip_out.write("rates.txt")
+        zip_out.write("exceptions.txt")
