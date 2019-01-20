@@ -40,7 +40,7 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
         try:
             url = url_queue.get(timeout=0.1)
         except Empty:
-            asyncio.sleep(1)
+            await asyncio.sleep(1)
             continue
 
         # Fetch the None to end the processing
