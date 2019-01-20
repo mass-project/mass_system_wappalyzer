@@ -3,6 +3,7 @@ from message_objects import Response, ExceptionResult
 from setproctitle import setproctitle
 
 import asyncio
+import aiojobs
 import uvloop
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.resolver import AsyncResolver
@@ -32,30 +33,32 @@ async def bound_fetch(sem, url, match_queue, result_queue, resolver):
 
 
 async def run_requests(loop, url_queue, match_queue, result_queue, num_connections):
-    requests = []
-    sem = asyncio.Semaphore(num_connections)
+    scheduler = await aiojobs.create_scheduler(limit=num_connections)
     resolver = AsyncResolver()
 
     while True:
         try:
             url = url_queue.get(timeout=0.1)
         except Empty:
-            await asyncio.gather(*requests, loop=loop)
+            asyncio.sleep(1)
             continue
 
         # Fetch the None to end the processing
         if not url:
             break
 
-        task = asyncio.ensure_future(bound_fetch(sem, url, match_queue, result_queue, resolver))
-        requests.append(task)
+        job = await scheduler.spawn(fetch(url, match_queue, result_queue, resolver))
 
-    await asyncio.gather(*requests, loop=loop)
+    # TODO: Find out why this workaround is necessary
+    await job.wait()
+    await asyncio.sleep(10)
+    await scheduler.close()
 
 
 def aio_handle_requests(url_queue, match_queue, result_queue, num_connections):
     setproctitle("wappalyzer: aio_handle_requests")
 
-    loop = uvloop.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = asyncio.get_event_loop()
+    #loop = uvloop.new_event_loop()
+    #asyncio.set_event_loop(loop)
     loop.run_until_complete(run_requests(loop, url_queue, match_queue, result_queue, num_connections))
