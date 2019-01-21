@@ -7,7 +7,7 @@ from traceback import format_exc
 from zipfile import ZipFile
 from datetime import datetime
 
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Queue, Value, cpu_count
 from datetime import datetime
 from time import sleep
 import csv
@@ -103,8 +103,8 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
 
 
 def main():
-    num_wa = int(os.getenv('NUM_WA', 4))
-    num_fetch = int(os.getenv('NUM_FETCH', 6))
+    num_wa = int(os.getenv('NUM_WA', max(cpu_count()-2, 1)))
+    num_fetch = int(os.getenv('NUM_FETCH', cpu_count()))
     fetch_parallelism = int(os.getenv('FETCH_PARALLELISM', 5000))
     queue_watermark_high = int(os.getenv('MAX_QUEUE_SIZE', 15000))
     queue_watermark_low = queue_watermark_high - fetch_parallelism
