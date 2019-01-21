@@ -108,12 +108,12 @@ def main():
     fetch_parallelism = int(os.getenv('FETCH_PARALLELISM', 5000))
     queue_watermark_high = int(os.getenv('MAX_QUEUE_SIZE', 15000))
     queue_watermark_low = queue_watermark_high - fetch_parallelism
-
+    nameserver = os.getenv('NAMESERVER', None)
 
     wa = Wappalyzer()
     url_queue, match_queue, result_queue = Queue(), Queue(), Queue()
     written_total = Value('i', 0)
-    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, fetch_parallelism/num_fetch)) for _ in range(num_fetch)]
+    p_http_reciever = [Process(target=aio_handle_requests, args=(url_queue, match_queue, result_queue, fetch_parallelism/num_fetch, nameserver)) for _ in range(num_fetch)]
     p_wappalyzer = [Process(target=wappalyzer, args=(wa, match_queue, result_queue)) for _ in range(num_wa)]
     p_result = Process(target=result_writer, args=(url_queue, match_queue, result_queue, written_total))
 

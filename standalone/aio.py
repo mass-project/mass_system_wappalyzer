@@ -32,9 +32,9 @@ async def bound_fetch(sem, url, match_queue, result_queue, resolver):
         await fetch(url, match_queue, result_queue, resolver)
 
 
-async def run_requests(loop, url_queue, match_queue, result_queue, num_connections):
+async def run_requests(loop, url_queue, match_queue, result_queue, num_connections, nameserver):
     scheduler = await aiojobs.create_scheduler(limit=num_connections)
-    resolver = AsyncResolver()
+    resolver = AsyncResolver(nameservers=[nameserver]) if nameserver else AsyncResolver()
 
     while True:
         try:
@@ -55,10 +55,10 @@ async def run_requests(loop, url_queue, match_queue, result_queue, num_connectio
     await scheduler.close()
 
 
-def aio_handle_requests(url_queue, match_queue, result_queue, num_connections):
+def aio_handle_requests(url_queue, match_queue, result_queue, num_connections, nameserver=None):
     setproctitle("wappalyzer: aio_handle_requests")
 
     loop = asyncio.get_event_loop()
     #loop = uvloop.new_event_loop()
     #asyncio.set_event_loop(loop)
-    loop.run_until_complete(run_requests(loop, url_queue, match_queue, result_queue, num_connections))
+    loop.run_until_complete(run_requests(loop, url_queue, match_queue, result_queue, num_connections, nameserver))
