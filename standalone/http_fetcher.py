@@ -34,7 +34,7 @@ def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
 
 
 def txt_input_reader(url_queue, written_total, watermark_low, watermark_high):
-    with open('wordpress.txt', encoding='utf-8') as fp:
+    with open('combined_list.txt', encoding='utf-8') as fp:
         for read_total, url in enumerate(fp):
             _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high)
             url_queue.put(url.strip())
