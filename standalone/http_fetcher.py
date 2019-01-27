@@ -4,10 +4,10 @@ from message_objects import SuccessfulResult, ExceptionResult
 
 from setproctitle import setproctitle
 from traceback import format_exc
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from datetime import datetime
 
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Queue, Value, cpu_count
 from datetime import datetime
 from time import sleep
 import csv
@@ -34,7 +34,7 @@ def csv_input_reader(url_queue, written_total, watermark_low, watermark_high):
 
 
 def txt_input_reader(url_queue, written_total, watermark_low, watermark_high):
-    with open('wordpress.txt', encoding='utf-8') as fp:
+    with open('combined_list.txt', encoding='utf-8') as fp:
         for read_total, url in enumerate(fp):
             _wait_for_queue_limit(read_total, written_total, watermark_low, watermark_high)
             url_queue.put(url.strip())
@@ -103,8 +103,8 @@ def result_writer(url_queue, match_queue, result_queue, written_total):
 
 
 def main():
-    num_wa = int(os.getenv('NUM_WA', 4))
-    num_fetch = int(os.getenv('NUM_FETCH', 6))
+    num_wa = int(os.getenv('NUM_WA', max(cpu_count()-2, 1)))
+    num_fetch = int(os.getenv('NUM_FETCH', cpu_count()))
     fetch_parallelism = int(os.getenv('FETCH_PARALLELISM', 5000))
     queue_watermark_high = int(os.getenv('MAX_QUEUE_SIZE', 15000))
     queue_watermark_low = queue_watermark_high - fetch_parallelism
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     date = datetime.now().strftime("%Y-%m-%d")
     out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
     out_path = os.path.join(out_directory, "{}.zip".format(date))
-    with ZipFile(out_path, "w") as zip_out:
+    with ZipFile(out_path, "w", ZIP_DEFLATED) as zip_out:
         zip_out.write("results.txt")
         zip_out.write("rates.txt")
         zip_out.write("exceptions.txt")

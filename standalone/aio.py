@@ -15,9 +15,10 @@ from queue import Empty
 
 async def fetch(url, match_queue, result_queue, resolver):
     try:
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"}
         conn = TCPConnector(resolver=resolver, family=socket.AF_INET, limit=100, verify_ssl=False, enable_cleanup_closed=True, force_close=True)
         timeout = ClientTimeout(total=5, connect=None, sock_connect=None, sock_read=None)
-        async with ClientSession(connector=conn, timeout=timeout) as session:
+        async with ClientSession(connector=conn, timeout=timeout, headers=headers) as session:
             async with session.get(url, allow_redirects=True) as response:
                 headers = {k: v for k, v in response.headers.items()}
                 content = await response.read()
