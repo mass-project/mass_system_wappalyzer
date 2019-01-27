@@ -34,7 +34,7 @@ async def bound_fetch(sem, url, match_queue, result_queue, resolver):
 
 async def run_requests(loop, url_queue, match_queue, result_queue, num_connections, nameserver):
     scheduler = await aiojobs.create_scheduler(limit=num_connections)
-    resolver = AsyncResolver(nameservers=[nameserver]) if nameserver else AsyncResolver()
+    resolver = AsyncResolver(nameservers=nameserver.split(',')) if nameserver else AsyncResolver()
 
     while True:
         try:
