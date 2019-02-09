@@ -34,9 +34,11 @@ class SuccessfulResult(Result):
 class ExceptionResult(Result):
     def __init__(self, url, exception, traceback, stage=None):
         super().__init__(url)
-        self.exception = repr(exception)
+        self.exception = type(exception).__name__
+        self.message = str(exception)
         self.traceback = traceback
         self.stage = stage
 
     def serialize(self):
-        return json.dumps({'url': self.url, 'exception': self.exception, 'traceback': self.traceback, 'stage': self.stage})
+        return json.dumps({'url': self.url, 'exception': self.exception, 'message': self.message,
+                           'traceback': self.traceback, 'stage': self.stage})
