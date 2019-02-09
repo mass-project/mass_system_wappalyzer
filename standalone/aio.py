@@ -25,7 +25,7 @@ async def fetch(url, match_queue, result_queue, resolver, client_timeout):
                 r = Response(response.status, headers, url, content.decode('utf-8', 'ignore'))
                 match_queue.put(r)
     except Exception as e:
-        result_queue.put(ExceptionResult(url, e, format_exc()))
+        result_queue.put(ExceptionResult(url, e, format_exc(), "fetch"))
 
 
 async def bound_fetch(sem, url, match_queue, result_queue, resolver):

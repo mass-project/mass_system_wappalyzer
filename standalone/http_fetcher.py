@@ -54,7 +54,7 @@ def wappalyzer(wa, match_queue, result_queue):
         except Exception as e:
             traceback.print_exc(file=sys.stderr)
             print("wappalyzer", response, e, file=sys.stderr)
-            result_queue.put(ExceptionResult(response.url, e, format_exc()))
+            result_queue.put(ExceptionResult(response.url, e, format_exc(), "wappalyzer"))
 
 
 def result_writer(url_queue, match_queue, result_queue, written_total):
