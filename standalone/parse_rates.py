@@ -2,7 +2,7 @@ import numpy as np
 import json
 
 from collections import Counter
-from pprint import pprint
+from operator import itemgetter
 from matplotlib import pyplot as plt
 
 
@@ -22,10 +22,7 @@ def moving_average(interval, window_size):
 
 
 def rate_stats():
-    # Calculate rate statistics
     rates = np.loadtxt("rates.txt")
-    stats_requests = calculate_stats(rates[:, 2])
-    stats_successes = calculate_stats(rates[:, 5])
 
     # Requests
     plt.grid(True)
@@ -33,7 +30,9 @@ def rate_stats():
     plt.plot(rates[:, 1], moving_average(rates[:, 2], 40), color='orange')
     plt.xlabel('Number of samples')
     plt.ylabel('Completed requests per second')
-    plt.show()
+    #plt.show()
+    plt.savefig('requests.png')
+    plt.close()
 
     # Success rate
     plt.grid(True)
@@ -41,10 +40,14 @@ def rate_stats():
     plt.plot(rates[:, 1], moving_average(rates[:, 5], 40), color='orange')
     plt.xlabel('Number of samples')
     plt.ylabel('Successful requests in percent')
-    plt.show()
+    #plt.show()
+    plt.savefig('successes.png')
 
-    pprint(stats_requests)
-    pprint(stats_successes)
+    # Calculate rate statistics
+    return {
+        "requests": calculate_stats(rates[:, 2]),
+        "successes": calculate_stats(rates[:, 5])
+    }
 
 
 def exception_stats():
@@ -55,9 +58,11 @@ def exception_stats():
             stage = data["stage"] if "stage" in data else "unknown"
             exceptions.setdefault(stage, []).append(data["exception"])
 
+    results = {}
     for k, v in exceptions.items():
-        print(k)
-        pprint(Counter(v))
+        results[k] = sorted(Counter(v).items(), key=itemgetter(1), reverse=True)
+
+    return results
 
 
 def result_stats():
@@ -69,15 +74,28 @@ def result_stats():
                 apps.append(app)
                 versions.setdefault(app, []).append(version)
 
+    results = []
     app_counts = Counter(apps)
-    for app, count in app_counts.most_common(30):
-        print("\n\n{}: {}".format(app, count))
-        pprint(Counter(versions[app]).most_common(10))
+    for app, count in sorted(app_counts.items(), key=itemgetter(1), reverse=True):
+        results.append({
+            "app": app,
+            "count": count,
+            "versions": sorted(Counter(versions[app]).items(), key=itemgetter(1), reverse=True)
+        })
+
+    return results
 
 
 if __name__ == '__main__':
-    rate_stats()
-    exception_stats()
-    result_stats()
+    results = {
+        "rates": rate_stats(),
+        "exceptions": exception_stats(),
+        "apps": result_stats()
+    }
+
+    with open("aggregated.json", "w") as fp:
+        json.dump(results, fp)
+
+
 
 
