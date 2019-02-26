@@ -31,7 +31,7 @@ def rate_stats():
     plt.xlabel('Number of samples')
     plt.ylabel('Completed requests per second')
     #plt.show()
-    plt.savefig('requests.png')
+    plt.savefig('requests.png', transparent=True)
     plt.close()
 
     # Success rate
@@ -41,35 +41,39 @@ def rate_stats():
     plt.xlabel('Number of samples')
     plt.ylabel('Successful requests in percent')
     #plt.show()
-    plt.savefig('successes.png')
+    plt.savefig('successes.png', transparent=True)
 
     # Calculate rate statistics
     return {
         "requests": calculate_stats(rates[:, 2]),
         "successes": calculate_stats(rates[:, 5])
-    }
+    }, int(rates[:, 1].max()), rates[:, 0].max()
 
 
 def exception_stats():
     exceptions = {}
+    num_exceptions = 0
     with open("exceptions.txt") as fp:
         for line in fp:
             data = json.loads(line)
             stage = data["stage"] if "stage" in data else "unknown"
             exceptions.setdefault(stage, []).append(data["exception"])
+            num_exceptions +=1
 
     results = {}
     for k, v in exceptions.items():
         results[k] = sorted(Counter(v).items(), key=itemgetter(1), reverse=True)
 
-    return results
+    return results, num_exceptions
 
 
 def result_stats():
     apps = []
     versions = {}
+    num_results = 0
     with open("results.txt") as fp:
         for line in fp:
+            num_results += 1
             for app, version in json.loads(line)["matches"].items():
                 apps.append(app)
                 versions.setdefault(app, []).append(version)
@@ -83,14 +87,24 @@ def result_stats():
             "versions": sorted(Counter(versions[app]).items(), key=itemgetter(1), reverse=True)
         })
 
-    return results
+    return results, num_results
 
 
 if __name__ == '__main__':
+    rates, num_samples, seconds = rate_stats()
+    exceptions, num_exceptions = exception_stats()
+    apps, num_results = result_stats()
     results = {
-        "rates": rate_stats(),
-        "exceptions": exception_stats(),
-        "apps": result_stats()
+        "rates": rates,
+        "exceptions": exceptions,
+        "apps": apps,
+        "run": {
+            "seconds": seconds,
+            "samples": num_samples,
+            "avg_rate": num_samples / seconds,
+            "exceptions": (num_exceptions, 100*num_exceptions/num_samples),
+            "successes": (num_results, 100*num_results/num_samples)
+        }
     }
 
     with open("aggregated.json", "w") as fp:
