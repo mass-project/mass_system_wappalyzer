@@ -5,6 +5,10 @@ from collections import Counter
 from operator import itemgetter
 from matplotlib import pyplot as plt
 
+from zipfile import ZipFile, ZIP_DEFLATED
+from datetime import datetime
+import os
+
 
 def calculate_stats(array):
     return {
@@ -21,7 +25,7 @@ def moving_average(interval, window_size):
     return np.convolve(interval, window, 'same')
 
 
-def rate_stats():
+def rate_stats(out_img_successes, out_img_requests):
     rates = np.loadtxt("rates.txt")
 
     # Requests
@@ -31,7 +35,7 @@ def rate_stats():
     plt.xlabel('Number of samples')
     plt.ylabel('Completed requests per second')
     #plt.show()
-    plt.savefig('requests.png', transparent=True)
+    plt.savefig(out_img_requests, transparent=True)
     plt.close()
 
     # Success rate
@@ -41,7 +45,7 @@ def rate_stats():
     plt.xlabel('Number of samples')
     plt.ylabel('Successful requests in percent')
     #plt.show()
-    plt.savefig('successes.png', transparent=True)
+    plt.savefig(out_img_successes, transparent=True)
 
     # Calculate rate statistics
     return {
@@ -91,7 +95,14 @@ def result_stats():
 
 
 if __name__ == '__main__':
-    rates, num_samples, seconds = rate_stats()
+    date = datetime.now().strftime("%Y-%m-%d")
+    out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
+    out_path_zip = os.path.join(out_directory, "{}.zip".format(date))
+    out_path_agg = os.path.join(out_directory, "{}_aggregated.json".format(date))
+    out_path_suc = os.path.join(out_directory, "jekyll/assets/{}_successes.png".format(date))
+    out_path_req = os.path.join(out_directory, "jekyll/assets/{}_requests.png".format(date))
+
+    rates, num_samples, seconds = rate_stats(out_path_suc, out_path_req)
     exceptions, num_exceptions = exception_stats()
     apps, num_results = result_stats()
     results = {
@@ -107,7 +118,12 @@ if __name__ == '__main__':
         }
     }
 
-    with open("aggregated.json", "w") as fp:
+    with ZipFile(out_path_zip, "w", ZIP_DEFLATED) as zip_out:
+        zip_out.write("results.txt")
+        zip_out.write("rates.txt")
+        zip_out.write("exceptions.txt")
+
+    with open(out_path_agg, "w") as fp:
         json.dump(results, fp)
 
 

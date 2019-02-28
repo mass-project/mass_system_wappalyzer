@@ -4,8 +4,6 @@ from message_objects import SuccessfulResult, ExceptionResult
 
 from setproctitle import setproctitle
 from traceback import format_exc
-from zipfile import ZipFile, ZIP_DEFLATED
-from datetime import datetime
 
 from multiprocessing import Process, Queue, Value, cpu_count
 from datetime import datetime
@@ -140,11 +138,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-    date = datetime.now().strftime("%Y-%m-%d")
-    out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
-    out_path = os.path.join(out_directory, "{}.zip".format(date))
-    with ZipFile(out_path, "w", ZIP_DEFLATED) as zip_out:
-        zip_out.write("results.txt")
-        zip_out.write("rates.txt")
-        zip_out.write("exceptions.txt")
