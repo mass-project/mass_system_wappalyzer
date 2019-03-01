@@ -6,7 +6,7 @@ from operator import itemgetter
 from matplotlib import pyplot as plt
 
 from zipfile import ZipFile, ZIP_DEFLATED
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 import os
 
 
@@ -95,9 +95,9 @@ def result_stats():
 
 
 if __name__ == '__main__':
-    date = date.today().strftime("%Y-%m-%d")
-    prev_date = (date.today()-timedelta(1)).strftime("%Y-%m-%d")
-    next_date = (date.today()+timedelta(1)).strftime("%Y-%m-%d")
+    date = datetime.today().strftime("%Y-%m-%d")
+    prev_date = (datetime.today()-timedelta(1)).strftime("%Y-%m-%d")
+    next_date = (datetime.today()+timedelta(1)).strftime("%Y-%m-%d")
     out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
     out_path_zip = os.path.join(out_directory, "{}.zip".format(date))
     out_path_html = os.path.join(out_directory, "jekyll/runs/{}.html".format(date))
