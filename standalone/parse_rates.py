@@ -98,7 +98,7 @@ if __name__ == '__main__':
     date = datetime.now().strftime("%Y-%m-%d")
     out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
     out_path_zip = os.path.join(out_directory, "{}.zip".format(date))
-    out_path_agg = os.path.join(out_directory, "{}_aggregated.json".format(date))
+    out_path_agg = os.path.join(out_directory, "jekyll/_data/results/{}.json".format(date))
     out_path_suc = os.path.join(out_directory, "jekyll/assets/{}_successes.png".format(date))
     out_path_req = os.path.join(out_directory, "jekyll/assets/{}_requests.png".format(date))
 
