@@ -98,6 +98,7 @@ if __name__ == '__main__':
     date = datetime.now().strftime("%Y-%m-%d")
     out_directory = os.getenv('RESULT_DIRECTORY', os.getcwd())
     out_path_zip = os.path.join(out_directory, "{}.zip".format(date))
+    out_path_html = os.path.join(out_directory, "jekyll/runs/{}.html".format(date))
     out_path_agg = os.path.join(out_directory, "jekyll/_data/results/{}.json".format(date))
     out_path_suc = os.path.join(out_directory, "jekyll/assets/{}_successes.png".format(date))
     out_path_req = os.path.join(out_directory, "jekyll/assets/{}_requests.png".format(date))
@@ -126,6 +127,5 @@ if __name__ == '__main__':
     with open(out_path_agg, "w") as fp:
         json.dump(results, fp)
 
-
-
-
+    with open(out_path_html, "w") as fp:
+        fp.writelines(["---", "layout: results", "date: \"{}\"".format(date), "---"])
