@@ -106,15 +106,21 @@ class Wappalyzer:
         if not headers:
             headers = {}
 
+        # Match HTML
         found = self.database.match(data)
+
+        # Match Headers
         for k, v in headers.items():
             if k in self.header_databases:
-                # Todo: Do not overwrite old version results
-                found.update(self.header_databases[k].match(v))
+                for app, version in self.header_databases[k].match(v).items():
+                    if app in found and found[app] is not None:
+                        continue
+                    found[app] = version
 
         if not include_implied:
             return found
 
+        # Add implied technologies to the results
         queue = set(found.keys())
         while queue:
             app = queue.pop()
