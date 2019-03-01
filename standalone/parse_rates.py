@@ -128,4 +128,4 @@ if __name__ == '__main__':
         json.dump(results, fp)
 
     with open(out_path_html, "w") as fp:
-        fp.writelines(["---", "layout: results", "date: \"{}\"".format(date), "---"])
+        fp.write("---\nlayout: results\ndate: \"{}\"\n---".format(date))
